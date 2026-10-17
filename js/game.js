@@ -6,12 +6,17 @@ class Game {
   // opts: { nations: [axisKey, alliesKey], ai: [bool, bool], size, seed, rng? }
   constructor(opts) {
     this.rng = opts.rng || Math.random;
+    this.fog = opts.fog !== false;
     this.map = generateMap(opts.size, opts.seed);
     this.players = opts.nations.map((nation, i) => ({ nation, ai: !!opts.ai[i], funds: START_FUNDS }));
     this.units = [];
     this.nextId = 1;
     this.turn = 1;
+    this.halfTurn = 0;
     this.current = 0;
+    this.version = 0;
+    this.visCache = [null, null];
+    this.explored = [new Set(), new Set()];
     this.gameOver = false;
     this.winner = -1;
     this.endReason = '';
@@ -51,12 +56,62 @@ class Game {
   }
 
   // Bodeneinheiten müssen anhalten, wenn sie neben eine feindliche Bodeneinheit ziehen.
-  inEnemyZoc(q, r, player) {
+  // knownOnly: nur Gegner berücksichtigen, die der Spieler sieht (für die Zugplanung).
+  inEnemyZoc(q, r, player, knownOnly) {
     for (const [nq, nr] of hexNeighbors(q, r)) {
       const e = this.unitAt(nq, nr);
-      if (e && e.owner !== player && !this.stats(e).isAir) return true;
+      if (e && e.owner !== player && !this.stats(e).isAir && (!knownOnly || this.canSee(player, e))) return true;
     }
     return false;
+  }
+
+  // ---------- Aufklärung ----------
+
+  // Felder, die ein Spieler gerade einsehen kann (gecacht bis zur nächsten Zustandsänderung).
+  visibleTiles(player) {
+    const cached = this.visCache[player];
+    if (cached && cached.version === this.version) return cached.vis;
+    const vis = new Set();
+    const add = (q, r, range) => {
+      for (let dq = -range; dq <= range; dq++) {
+        for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
+          const k = hexKey(q + dq, r + dr);
+          if (this.map.tiles.has(k)) vis.add(k);
+        }
+      }
+    };
+    if (!this.fog) {
+      for (const k of this.map.tiles.keys()) vis.add(k);
+    } else {
+      for (const u of this.units) {
+        if (u.owner !== player) continue;
+        const s = this.stats(u);
+        const bonus = s.isAir ? 0 : (TERRAIN[this.tileOf(u).terrain].vision || 0);
+        add(u.q, u.r, s.vision + bonus);
+      }
+      for (const t of this.map.tiles.values()) if (t.owner === player) add(t.q, t.r, 1);
+    }
+    for (const k of vis) this.explored[player].add(k);
+    this.visCache[player] = { version: this.version, vis };
+    return vis;
+  }
+
+  canSee(player, e) {
+    if (!this.fog || e.owner === player) return true;
+    if (e.revealUntil >= this.halfTurn) return true;
+    if (!this.visibleTiles(player).has(hexKey(e.q, e.r))) return false;
+    if (this.stats(e).isAir || !TERRAIN[this.tileOf(e).terrain].conceals) return true;
+    // Im Wald nur aus nächster Nähe oder von Aufklärern zu erkennen.
+    return this.units.some(u => {
+      if (u.owner !== player) return false;
+      const d = hexDistance(u.q, u.r, e.q, e.r);
+      const s = this.stats(u);
+      return d <= 1 || (s.spotter && d <= s.vision);
+    });
+  }
+
+  visibleEnemies(player) {
+    return this.units.filter(e => e.owner !== player && this.canSee(player, e));
   }
 
   canMove(u) { return !u.moved && !u.attacked; }
@@ -77,20 +132,22 @@ class Game {
       open.sort((a, b) => a.c - b.c);
       const cur = open.shift();
       if (cur.c > res.get(cur.k).cost) continue;
-      if (cur.k !== startKey && !s.isAir && this.inEnemyZoc(cur.q, cur.r, u.owner)) continue;
+      if (cur.k !== startKey && !s.isAir && this.inEnemyZoc(cur.q, cur.r, u.owner, true)) continue;
       for (const [nq, nr] of hexNeighbors(cur.q, cur.r)) {
         const t = this.tile(nq, nr);
         if (!t) continue;
         const tc = TERRAIN[t.terrain].cost[s.moveType];
         if (tc >= IMPASSABLE) continue;
+        // Unentdeckte Gegner sind für die Planung unsichtbar (Hinterhalt beim Ausführen).
         const occ = this.unitAt(nq, nr);
-        if (occ && occ.owner !== u.owner) continue;
+        if (occ && occ.owner !== u.owner && this.canSee(u.owner, occ)) continue;
+        const friend = occ && occ.owner === u.owner;
         const nc = cur.c + tc;
         if (nc > s.move) continue;
         const nk = hexKey(nq, nr);
         const ex = res.get(nk);
         if (!ex || nc < ex.cost) {
-          res.set(nk, { cost: nc, prev: cur.k, stop: !occ });
+          res.set(nk, { cost: nc, prev: cur.k, stop: !friend });
           open.push({ k: nk, q: nq, r: nr, c: nc });
         }
       }
@@ -118,7 +175,7 @@ class Game {
   }
 
   targetsFrom(u, q, r) {
-    return this.units.filter(e => e.owner !== u.owner && this.inRange(u, q, r, e) && this.attackValue(u, e) > 0);
+    return this.units.filter(e => e.owner !== u.owner && this.inRange(u, q, r, e) && this.attackValue(u, e) > 0 && this.canSee(u.owner, e));
   }
 
   attackTargets(u) {
@@ -172,16 +229,38 @@ class Game {
 
   // ---------- Aktionen ----------
 
+  // Führt einen Zug Feld für Feld aus. Stößt die Einheit auf einen unentdeckten Gegner
+  // (Hinterhalt) oder in dessen Kontrollzone, bleibt sie stehen.
+  // Rückgabe: { path, ambush, capture } oder null bei ungültigem Ziel.
   moveUnit(u, destKey) {
     const reach = this.reachable(u);
     const info = reach.get(destKey);
     if (!info || !info.stop) return null;
-    const [q, r] = parseKey(destKey);
-    if (destKey !== hexKey(u.q, u.r)) {
-      u.q = q; u.r = r;
-      u.moved = true;
+    const planned = this.pathTo(reach, destKey);
+    const isAir = this.stats(u).isAir;
+    let stand = 0;
+    let ambush = null;
+    let stopped = false;
+    for (let i = 1; i < planned.length; i++) {
+      const [q, r] = parseKey(planned[i]);
+      const occ = this.unitAt(q, r);
+      if (occ && occ.owner !== u.owner) { ambush = occ; break; }
+      if (!occ) stand = i;
+      if (!isAir && i < planned.length - 1 && this.inEnemyZoc(q, r, u.owner, false)) { stopped = true; break; }
     }
-    return this.tryCapture(u);
+    const path = planned.slice(0, stand + 1);
+    if (stand > 0 || ambush) u.moved = true;
+    if (stand > 0) {
+      [u.q, u.r] = parseKey(planned[stand]);
+      this.version++;
+    }
+    if (ambush) {
+      ambush.revealUntil = Math.max(ambush.revealUntil || 0, this.halfTurn);
+      this.addLog(`Hinterhalt! ${this.stats(u).name} stößt auf ${this.stats(ambush).name}.`, u.owner);
+    } else if (stopped) {
+      this.addLog(`Hinterhalt! ${this.stats(u).name} trifft auf versteckten Feind und hält an.`, u.owner);
+    }
+    return { path, ambush, stopped, capture: this.tryCapture(u) };
   }
 
   tryCapture(u) {
@@ -189,6 +268,7 @@ class Game {
     if (!this.stats(u).capture || !TERRAIN[t.terrain].capturable || t.owner === u.owner) return null;
     const prev = t.owner;
     t.owner = u.owner;
+    this.version++;
     const what = t.terrain === 'hq' ? 'das feindliche Hauptquartier' : 'eine Stadt';
     this.addLog(`${this.stats(u).name} erobert ${what}.`, u.owner);
     this.checkWinner();
@@ -207,6 +287,8 @@ class Game {
     }
     att.attacked = true;
     att.moved = true;
+    // Wer feuert, verrät seine Stellung bis zum Ende des gegnerischen Zuges.
+    att.revealUntil = this.halfTurn + 1;
     let msg = `${as.name} greift ${ds.name} an: −${dmg}`;
     if (counter) msg += `, Gegenschlag −${counter}`;
     if (def.hp <= 0) msg += `. ${ds.name} vernichtet!`;
@@ -222,6 +304,7 @@ class Game {
   removeUnit(u) {
     const i = this.units.indexOf(u);
     if (i >= 0) this.units.splice(i, 1);
+    this.version++;
   }
 
   buy(type, tile) {
@@ -240,12 +323,15 @@ class Game {
   spawn(type, owner, q, r) {
     const u = { id: this.nextId++, type, owner, q, r, hp: 10, moved: false, attacked: false };
     this.units.push(u);
+    this.version++;
     return u;
   }
 
   endTurn() {
     if (this.gameOver) return;
     this.current = 1 - this.current;
+    this.halfTurn++;
+    this.version++;
     if (this.current === 0) this.turn++;
     if (this.turn > MAX_TURNS) { this.decideByPoints(); return; }
     this.startTurn();

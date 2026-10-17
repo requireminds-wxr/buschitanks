@@ -16,7 +16,9 @@ python3 -m http.server 8765
 - **Achsenmächte** (Deutschland, Italien, Japan) gegen **Alliierte** (USA, Großbritannien, Sowjetunion). Jede Nation hat eigene Einheitennamen und einen Bonus.
 - Mensch gegen Computer, Hotseat (zwei Menschen) oder Computer gegen Computer.
 - Zufällige, punktsymmetrische Karten in drei Größen; ein Seed reproduziert die Karte.
-- 8 Einheitentypen: Infanterie, Aufklärung, Panzer, Schwerer Panzer, Panzerabwehr, Artillerie, Flak, Jagdbomber.
+- 9 Einheitentypen: Infanterie, Aufklärung, Panzer, Schwerer Panzer, Panzerabwehr, Artillerie, Leichte Flak, Schwere Flak, Jagdbomber – jeweils mit NATO-Symbol und Silhouetten-Icon.
+- Nebel des Krieges (abschaltbar): Jeder Typ hat eine Sichtweite, Aufklärer und Flugzeuge sehen in Wälder. Nur aufgeklärte Gegner sind sichtbar und angreifbar; unentdeckte Gegner führen zu Hinterhalten.
+- Leichte Flak (1–2 Felder) ist auch gegen weiche Ziele stark, schwere Flak wie die 8,8 cm (2–3 Felder) auch gegen Panzer.
 - Sieg durch Eroberung des feindlichen Hauptquartiers oder Vernichtung aller feindlichen Einheiten; nach 40 Runden entscheiden Städte und Truppenstärke.
 
 Die vollständigen Regeln stehen im Startbildschirm unter „Spielregeln“.

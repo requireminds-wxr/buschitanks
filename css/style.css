@@ -98,7 +98,7 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .buy-list { display: flex; flex-direction: column; gap: 6px; }
 .buy-item {
-  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
+  display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px;
   text-align: left; width: 100%;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
   padding: 6px 8px; color: var(--text); cursor: pointer; font: inherit;
@@ -138,6 +138,7 @@ main { flex: 1; display: flex; min-height: 0; }
   display: flex; align-items: center; justify-content: center;
   padding: 16px; overflow-y: auto;
 }
+.overlay.opaque { background: #14160f; }
 .dialog {
   background: var(--paper); color: var(--ink);
   border-radius: 10px; max-width: 920px; width: 100%;
@@ -173,6 +174,8 @@ main { flex: 1; display: flex; min-height: 0; }
   font: 15px var(--font-ui); padding: 6px 8px; border-radius: 6px; border: 1px solid #b8ab88; background: #fffaf0; color: var(--ink);
 }
 .opts input { width: 130px; }
+.opts label.check { flex-direction: row; align-items: center; gap: 6px; font-size: 14px; padding-bottom: 7px; }
+.opts label.check input { width: auto; }
 .dialog .btn.big { background: #7a2a22; color: #fff; border-color: #5a1d17; }
 .dialog .btn.big:hover { background: #8f342b; }
 .dialog .btn.ghost { color: var(--ink); border-color: #b8ab88; }

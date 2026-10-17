@@ -6,20 +6,13 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-function unitIconCanvas(nationKey, type, w = 44, h = 32) {
+function unitIconCanvas(nationKey, type, w = 52, h = 40) {
   const c = document.createElement('canvas');
   c.width = w * 2; c.height = h * 2;
   c.style.width = w + 'px'; c.style.height = h + 'px';
   const ctx = c.getContext('2d');
   ctx.scale(2, 2);
-  const n = NATIONS[nationKey];
-  ctx.fillStyle = n.color;
-  roundRect(ctx, 1, 1, w - 2, h - 2, 4); ctx.fill();
-  ctx.strokeStyle = n.dark; ctx.lineWidth = 1.5; ctx.stroke();
-  const bw = w * 0.56, bh = h * 0.5, bx = (w - bw) / 2, by = (h - bh) / 2;
-  ctx.fillStyle = 'rgba(250,248,240,0.95)'; ctx.fillRect(bx, by, bw, bh);
-  ctx.strokeStyle = n.dark; ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
-  drawUnitSymbol(ctx, type, bx, by, bw, bh, '#1d1d1d');
+  drawCounter(ctx, nationKey, type, 1, 1, w - 2, h - 2);
   return c;
 }
 
@@ -31,7 +24,7 @@ class Controller {
     this.buyTile = null;
     this.hoverTile = null;
     this.busy = false;
-    this.setup = { nations: ['de', 'su'], ai: [false, true], size: 'medium', seed: this.randomSeed() };
+    this.setup = { nations: ['de', 'su'], ai: [false, true], size: 'medium', seed: this.randomSeed(), fog: true };
     this.flags = {};
     for (const k of Object.keys(NATIONS)) this.flags[k] = flagDataUrl(k);
     this.bindEvents();
@@ -92,6 +85,7 @@ class Controller {
           <input id="seedInput" type="number" value="${st.seed}">
         </label>
         <button class="btn ghost" id="seedBtn" type="button">Neue Karte würfeln</button>
+        <label class="check"><input id="fogInput" type="checkbox" ${st.fog ? 'checked' : ''}> Nebel des Krieges</label>
         <span style="flex:1"></span>
         ${cancellable && this.game ? '<button class="btn ghost" id="cancelBtn" type="button">Zurück zum Spiel</button>' : ''}
         <button class="btn big" id="startBtn" type="button">Feldzug beginnen</button>
@@ -104,6 +98,9 @@ class Controller {
           <li><b>Artillerie</b> schießt auf 2–3 Felder Entfernung, aber nicht im selben Zug, in dem sie sich bewegt hat. Sie wird nicht erwidert und erwidert selbst nicht.</li>
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
           <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge, Radfahrzeuge nicht in Sümpfe.</li>
+          <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
+          <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch.</li>
+          <li><b>Flak:</b> Leichte Flak (2–4 cm) wirkt auf 1–2 Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf 2–3 Felder, stark gegen Flugzeuge und Panzer, darf aber nicht im selben Zug ziehen und feuern.</li>
           <li><b>Kontrollzone:</b> Bodeneinheiten müssen anhalten, sobald sie neben eine feindliche Bodeneinheit ziehen. Flugzeuge ignorieren das.</li>
           <li><b>Städte:</b> Nur Infanterie kann Städte erobern (einfach daraufziehen). Jede Stadt bringt Nachschub, im eigenen HQ und in eigenen Städten können neue Einheiten ausgehoben werden. Einheiten in eigenen Städten erholen sich um ${HEAL_PER_TURN} Stärkepunkte pro Runde.</li>
           <li><b>Tasten:</b> E = Zug beenden, N = nächste Einheit, Esc / Rechtsklick = Auswahl aufheben.</li>
@@ -121,6 +118,7 @@ class Controller {
     }));
     $('sizeSel').addEventListener('change', e => { st.size = e.target.value; });
     $('seedInput').addEventListener('change', e => { st.seed = Number(e.target.value) || 0; });
+    $('fogInput').addEventListener('change', e => { st.fog = e.target.checked; });
     $('seedBtn').addEventListener('click', () => { st.seed = this.randomSeed(); $('seedInput').value = st.seed; });
     if ($('cancelBtn')) $('cancelBtn').addEventListener('click', () => this.closeDialog());
     $('startBtn').addEventListener('click', () => {
@@ -134,7 +132,7 @@ class Controller {
     const st = this.setup;
     this.gameToken = {};
     this.busy = false;
-    this.game = new Game({ nations: [...st.nations], ai: [...st.ai], size: st.size, seed: st.seed });
+    this.game = new Game({ nations: [...st.nations], ai: [...st.ai], size: st.size, seed: st.seed, fog: st.fog });
     this.game.onLog = () => this.renderLog();
     this.selected = null;
     this.buyTile = null;
@@ -143,7 +141,8 @@ class Controller {
     this.beginTurn();
   }
 
-  openDialog(html, small) {
+  openDialog(html, small, opaque) {
+    $('overlay').classList.toggle('opaque', !!opaque);
     $('overlayContent').className = 'dialog' + (small ? ' small' : '');
     $('overlayContent').innerHTML = html;
     $('overlay').classList.remove('hidden');
@@ -153,8 +152,23 @@ class Controller {
 
   // ---------- Zugablauf ----------
 
+  // Aus wessen Sicht der Nebel gezeichnet wird.
+  updateViewer() {
+    const g = this.game;
+    const humans = [0, 1].filter(i => !g.players[i].ai);
+    this.view.viewer = g.gameOver ? -1 : humans.length === 1 ? humans[0] : humans.length === 2 ? g.current : -1;
+  }
+
+  // Einheit an der Position, sofern der Betrachter sie sieht.
+  visibleUnitAt(q, r) {
+    const u = this.game.unitAt(q, r);
+    if (!u || this.view.viewer < 0 || this.game.canSee(this.view.viewer, u)) return u || null;
+    return null;
+  }
+
   beginTurn() {
     const g = this.game;
+    this.updateViewer();
     this.deselect();
     this.refresh();
     if (g.gameOver) { this.showGameOver(); return; }
@@ -169,7 +183,7 @@ class Controller {
           <h2>${esc(n.name)} ist am Zug</h2>
           <p class="tag">Runde ${g.turn} · Nachschub: ${p.funds}</p>
           <button class="btn big" id="readyBtn">Bereit</button>
-        </div>`, true);
+        </div>`, true, true);
       $('readyBtn').addEventListener('click', () => this.closeDialog());
     }
   }
@@ -198,6 +212,7 @@ class Controller {
 
   showGameOver() {
     const g = this.game;
+    this.updateViewer();
     const w = g.winner;
     const title = w >= 0 ? `Sieg für ${esc(g.nationOf(w).name)}!` : 'Unentschieden';
     const flag = w >= 0 ? `<img src="${this.flags[g.players[w].nation]}" alt="">` : '';
@@ -227,38 +242,42 @@ class Controller {
     const g = this.game;
     const t = this.eventTile(e);
     if (!t) { this.deselect(); return; }
-    const unit = g.unitAt(t.q, t.r);
+    const unit = this.visibleUnitAt(t.q, t.r);
     const sel = this.selected;
 
     if (sel) {
-      if (unit && unit.owner !== g.current && g.canAttackNow(sel) && g.inRange(sel, sel.q, sel.r, unit) && g.attackValue(sel, unit) > 0) {
+      if (unit && unit.owner !== g.current && g.attackTargets(sel).includes(unit)) {
         await this.doAttack(sel, unit);
         return;
       }
       const reach = g.reachable(sel);
       const info = reach.get(hexKey(t.q, t.r));
       if (!unit && info && info.stop && g.canMove(sel)) {
-        await this.doMove(sel, reach, hexKey(t.q, t.r));
+        await this.doMove(sel, hexKey(t.q, t.r));
         return;
       }
       if (unit === sel) { this.deselect(); return; }
     }
 
     if (unit && unit.owner === g.current) { this.select(unit); return; }
-    if (!unit && t.owner === g.current && TERRAIN[t.terrain].capturable) { this.openBuy(t); return; }
+    if (!unit && !g.unitAt(t.q, t.r) && t.owner === g.current && TERRAIN[t.terrain].capturable) { this.openBuy(t); return; }
     this.deselect();
     if (unit) this.renderInfo(unit);
   }
 
-  async doMove(u, reach, destKey) {
+  async doMove(u, destKey) {
     const g = this.game;
     this.busy = true;
     this.view.overlay.reach = null;
     this.view.overlay.path = null;
     this.view.overlay.targets = [];
-    await this.view.animateMove(u, g.pathTo(reach, destKey));
-    const cap = g.moveUnit(u, destKey);
-    if (cap) await this.view.flashText(u.q, u.r, 'Erobert!', '#ffe08a');
+    const res = g.moveUnit(u, destKey);
+    if (res) {
+      await this.view.animateMove(u, res.path);
+      if (res.ambush) await this.view.flashText(res.ambush.q, res.ambush.r, 'Hinterhalt!', '#ff9b6a');
+      else if (res.stopped) await this.view.flashText(u.q, u.r, 'Hinterhalt!', '#ff9b6a');
+      if (res.capture) await this.view.flashText(u.q, u.r, 'Erobert!', '#ffe08a');
+    }
     this.busy = false;
     if (g.gameOver) { this.refresh(); this.showGameOver(); return; }
     if (g.attackTargets(u).length) this.select(u);
@@ -326,7 +345,7 @@ class Controller {
     ov.hover = t;
     ov.path = null;
     if (!t) { this.hideTooltip(); return; }
-    const unit = g.unitAt(t.q, t.r);
+    const unit = this.visibleUnitAt(t.q, t.r);
     const sel = this.selected;
     let html = '';
 
@@ -346,7 +365,14 @@ class Controller {
     }
     if (!html) {
       const terr = TERRAIN[t.terrain];
+      const viewer = this.view.viewer;
+      const k = hexKey(t.q, t.r);
+      if (viewer >= 0 && g.fog && !g.explored[viewer].has(k)) {
+        this.showTooltip('<b>Unerkundet</b>', e);
+        return;
+      }
       html = `<b>${terr.name}</b>`;
+      if (viewer >= 0 && g.fog && !g.visibleTiles(viewer).has(k)) html += ' · <i>nicht aufgeklärt</i>';
       if (terr.def) html += ` · Deckung +${terr.def}`;
       if (terr.capturable) {
         html += `<br>${t.owner >= 0 ? esc(g.nationOf(t.owner).short) : 'Neutral'} · +${terr.income} Nachschub`;
@@ -406,7 +432,11 @@ class Controller {
       el.innerHTML = `
         <h3>Lage</h3>
         <dl class="stats">
-          ${[0, 1].map(i => `<dt>${esc(g.nationOf(i).short)}</dt><dd>${g.citiesOf(i)} Städte · ${g.units.filter(x => x.owner === i).length} Einheiten</dd>`).join('')}
+          ${[0, 1].map(i => {
+            const v = this.view.viewer;
+            const units = v < 0 || i === v ? `${g.units.filter(x => x.owner === i).length} Einheiten` : `${g.visibleEnemies(v).length} gesichtet`;
+            return `<dt>${esc(g.nationOf(i).short)}</dt><dd>${g.citiesOf(i)} Städte · ${units}</dd>`;
+          }).join('')}
         </dl>
         ${p.ai ? '' : `<p class="hint">${ready} Einheit(en) noch bereit. Wähle eine Einheit oder eine eigene Stadt ohne Einheit, um Truppen auszuheben.</p>
         <p class="hint"><kbd>N</kbd> nächste Einheit · <kbd>E</kbd> Zug beenden · <kbd>Esc</kbd> abbrechen</p>`}`;
@@ -435,6 +465,7 @@ class Controller {
           <dt>Verteidigung</dt><dd>${s.def} ${g.terrainDefense(u, u.q, u.r) ? `+${g.terrainDefense(u, u.q, u.r)} (${terr.name})` : ''}</dd>
           <dt>Bewegung</dt><dd>${s.move} (${MOVE_TYPE_LABEL[s.moveType]})</dd>
           <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}</dd>
+          <dt>Sichtweite</dt><dd>${s.vision}${s.spotter ? ' (sieht in Wälder)' : ''}</dd>
           <dt>Panzerung</dt><dd>${s.isAir ? 'Flugzeug' : s.armor >= 1 ? 'schwer' : s.armor > 0 ? 'leicht' : 'keine'}</dd>
         </dl>
         ${status}

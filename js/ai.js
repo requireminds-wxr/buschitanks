@@ -1,7 +1,7 @@
 // Einfache, gierige KI: greift an, wenn es sich lohnt, erobert Städte, rückt sonst vor.
 
 const AI_DELAY = 260;
-const AI_UNIT_ORDER = { art: 0, air: 1, heavy: 2, tank: 2, recon: 3, at: 4, aa: 4, inf: 5 };
+const AI_UNIT_ORDER = { recon: 0, art: 1, hflak: 1, air: 2, heavy: 3, tank: 3, lflak: 4, at: 5, inf: 6 };
 
 function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
@@ -44,11 +44,13 @@ function bestAttackFrom(game, u, q, r) {
   return best;
 }
 
-async function aiMove(game, view, u, reach, destKey) {
+async function aiMove(game, view, u, destKey) {
   if (destKey === hexKey(u.q, u.r)) return;
-  if (view) await view.animateMove(u, game.pathTo(reach, destKey));
-  const cap = game.moveUnit(u, destKey);
-  if (view && cap) await view.flashText(u.q, u.r, 'Erobert!', '#ffe08a');
+  const res = game.moveUnit(u, destKey);
+  if (!res || !view) return;
+  await view.animateMove(u, res.path);
+  if (res.ambush || res.stopped) await view.flashText(u.q, u.r, 'Hinterhalt!', '#ff9b6a');
+  if (res.capture) await view.flashText(u.q, u.r, 'Erobert!', '#ffe08a');
 }
 
 async function aiAttack(game, view, u, target) {
@@ -79,7 +81,7 @@ async function aiActUnit(game, view, u) {
 
   if (best && best.score > 15) {
     if (view) await sleep(AI_DELAY * 0.5);
-    await aiMove(game, view, u, reach, best.dest);
+    await aiMove(game, view, u, best.dest);
     if (best.target && !game.gameOver && game.units.includes(best.target) && game.canAttackNow(u) && game.inRange(u, u.q, u.r, best.target)) {
       await aiAttack(game, view, u, best.target);
     }
@@ -88,7 +90,7 @@ async function aiActUnit(game, view, u) {
 
   // 2. Strategische Bewegung.
   if (!game.canMove(u)) return;
-  const enemies = game.units.filter(e => e.owner !== u.owner);
+  const enemies = game.visibleEnemies(u.owner);
   let goals = [];
   if (u.hp <= 3) {
     goals = game.productionTiles(u.owner).map(t => hexKey(t.q, t.r));
@@ -101,13 +103,19 @@ async function aiActUnit(game, view, u) {
   if (!goals.length) {
     goals = enemies.map(e => hexKey(e.q, e.r));
     goals.push(game.map.hq[1 - u.owner]);
+    // Ohne Feindkontakt: Aufklärer erkunden feindliche Städte.
+    if (!enemies.length || s.spotter) {
+      for (const t of game.map.tiles.values()) {
+        if (TERRAIN[t.terrain].capturable && t.owner !== u.owner) goals.push(hexKey(t.q, t.r));
+      }
+    }
   }
   const dist = game.distanceMap(goals, s.moveType);
   const valueOf = k => {
     const [q, r] = parseKey(k);
     let v = dist.has(k) ? dist.get(k) : 999;
     v -= game.terrainDefense(u, q, r) * 0.25;
-    if (s.noMoveAndFire || s.type === 'at' || s.type === 'aa') {
+    if (s.noMoveAndFire || s.type === 'at' || s.type === 'lflak') {
       // Unterstützungseinheiten halten Abstand zur Front.
       const adjacent = enemies.some(e => hexDistance(q, r, e.q, e.r) <= 1);
       if (adjacent) v += 6;
@@ -122,7 +130,7 @@ async function aiActUnit(game, view, u) {
   }
   if (bestKey === startKey) return;
   if (view) await sleep(AI_DELAY * 0.4);
-  await aiMove(game, view, u, reach, bestKey);
+  await aiMove(game, view, u, bestKey);
 
   if (!game.gameOver && game.units.includes(u) && game.canAttackNow(u)) {
     const atk = bestAttackFrom(game, u, u.q, u.r);
@@ -133,7 +141,7 @@ async function aiActUnit(game, view, u) {
 function aiBuy(game) {
   const me = game.current;
   const p = game.players[me];
-  const enemies = game.units.filter(u => u.owner !== me);
+  const enemies = game.visibleEnemies(me);
   const mine = game.units.filter(u => u.owner === me);
   const count = (list, pred) => list.filter(pred).length;
   const enemyArmor = count(enemies, u => game.stats(u).armor >= 1);
@@ -143,15 +151,17 @@ function aiBuy(game) {
   for (const tile of spots) {
     const myInf = count(mine, u => u.type === 'inf');
     const myArt = count(mine, u => u.type === 'art');
-    const myAa = count(mine, u => u.type === 'aa');
+    const myAa = count(mine, u => u.type === 'lflak' || u.type === 'hflak');
+    const myRecon = count(mine, u => u.type === 'recon');
     const weights = {
       inf: 2 + (myInf < 4 ? 4 : 0),
-      recon: 1,
+      recon: myRecon < 2 ? 2.5 : 0.5,
       tank: 3,
       heavy: p.funds >= 900 ? 3 : 1,
-      at: 1 + enemyArmor * 0.8,
+      at: 1 + enemyArmor * 0.6,
       art: myArt < 3 ? 2 : 0.5,
-      aa: Math.max(0, enemyAir * 2 - myAa),
+      lflak: Math.max(0.5, enemyAir * 1.5 - myAa),
+      hflak: Math.max(0.5, enemyAir * 1.5 + enemyArmor * 0.5 - myAa),
       air: 1.5,
     };
     const options = UNIT_ORDER.filter(t => game.unitCost(me, t) <= p.funds && weights[t] > 0);

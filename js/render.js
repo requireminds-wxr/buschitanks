@@ -108,8 +108,12 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
     case 'art':
       ctx.beginPath(); ctx.arc(cx, cy, h * 0.2, 0, Math.PI * 2); ctx.fill();
       break;
-    case 'aa':
+    case 'lflak':
       ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.36, h * 0.7, 0, Math.PI, 0); ctx.stroke();
+      break;
+    case 'hflak':
+      ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.36, h * 0.7, 0, Math.PI, 0); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.18, h * 0.36, 0, Math.PI, 0); ctx.fill();
       break;
     case 'air':
       ctx.beginPath();
@@ -122,6 +126,124 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
   ctx.restore();
 }
 
+// Silhouette je Einheitentyp, gezeichnet in einem 100×60-Raster.
+function drawUnitIcon(ctx, type, x, y, w, h, color) {
+  const k = Math.min(w / 100, h / 60);
+  ctx.save();
+  ctx.translate(x + (w - 100 * k) / 2, y + (h - 60 * k) / 2);
+  ctx.scale(k, k);
+  ctx.fillStyle = color; ctx.strokeStyle = color;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const poly = pts => { ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill(); };
+  const line = (x1, y1, x2, y2, lw) => { ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+  const circle = (cx, cy, r) => { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); };
+  const track = (tx, ty, tw, th) => {
+    roundRect(ctx, tx, ty, tw, th, th / 2); ctx.fill();
+    ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = '#000';
+    const n = Math.round(tw / 14);
+    for (let i = 0; i < n; i++) circle(tx + th / 2 + i * (tw - th) / (n - 1), ty + th / 2, th * 0.28);
+    ctx.restore();
+  };
+  switch (type) {
+    case 'inf':
+      ctx.beginPath(); ctx.ellipse(50, 11, 10, 7, 0, Math.PI, 0); ctx.fill();
+      ctx.fillRect(37, 10, 26, 3);
+      circle(50, 16, 5);
+      poly([[42, 21], [58, 21], [60, 41], [40, 41]]);
+      line(46, 41, 40, 57, 6); line(54, 41, 60, 57, 6);
+      line(43, 25, 35, 35, 5);
+      line(28, 44, 76, 6, 3.5);
+      break;
+    case 'recon':
+      poly([[6, 40], [14, 27], [28, 22], [74, 22], [88, 30], [95, 40]]);
+      poly([[38, 22], [42, 13], [60, 13], [64, 22]]);
+      line(60, 17, 84, 15, 3);
+      [22, 40, 62, 80].forEach(cx => circle(cx, 45, 7.5));
+      break;
+    case 'tank':
+      track(6, 38, 86, 16);
+      poly([[11, 38], [18, 28], [84, 28], [90, 38]]);
+      poly([[32, 28], [37, 16], [62, 16], [67, 28]]);
+      line(62, 21, 97, 19, 3.5);
+      break;
+    case 'heavy':
+      track(3, 37, 92, 19);
+      poly([[6, 37], [11, 24], [90, 24], [95, 37]]);
+      poly([[25, 24], [30, 8], [66, 8], [71, 24]]);
+      line(66, 15, 97, 13, 5);
+      ctx.fillRect(93, 9.5, 6, 7);
+      break;
+    case 'at':
+      poly([[37, 15], [53, 13], [57, 40], [35, 42]]);
+      line(50, 26, 97, 22, 4);
+      line(44, 42, 6, 56, 4); line(46, 44, 22, 58, 4);
+      circle(46, 46, 9);
+      break;
+    case 'art':
+      line(44, 36, 90, 7, 7.5);
+      poly([[32, 30], [56, 27], [60, 40], [34, 42]]);
+      line(42, 42, 5, 56, 4.5);
+      circle(46, 46, 11);
+      break;
+    case 'lflak':
+      line(46, 36, 72, 4, 3.5); line(55, 38, 81, 6, 3.5);
+      poly([[34, 29], [64, 29], [66, 42], [32, 42]]);
+      ctx.fillRect(16, 42, 68, 5);
+      circle(27, 50, 6.5); circle(73, 50, 6.5);
+      break;
+    case 'hflak':
+      line(46, 35, 97, 3, 6);
+      poly([[33, 23], [59, 20], [63, 39], [31, 39]]);
+      ctx.fillRect(41, 38, 18, 10);
+      ctx.fillRect(4, 48, 92, 5);
+      line(14, 53, 7, 58, 4); line(86, 53, 93, 58, 4);
+      break;
+    case 'air':
+      ctx.beginPath(); ctx.ellipse(52, 30, 40, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+      poly([[44, 27], [52, 2], [62, 2], [61, 27]]);
+      poly([[44, 33], [52, 58], [62, 58], [61, 33]]);
+      poly([[12, 28], [15, 16], [22, 16], [23, 28]]);
+      poly([[12, 32], [15, 44], [22, 44], [23, 32]]);
+      line(93, 19, 93, 41, 2.5);
+      break;
+  }
+  ctx.restore();
+}
+
+// Spielstein: NATO-Symbol, Flagge, Silhouette und (optional) Stärke.
+function drawCounter(ctx, nationKey, type, x, y, w, h, hp) {
+  const n = NATIONS[nationKey];
+  const r = h * 0.14;
+  ctx.fillStyle = n.color;
+  roundRect(ctx, x, y, w, h, r); ctx.fill();
+  ctx.strokeStyle = n.dark; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.13)';
+  roundRect(ctx, x + 2, y + 2, w - 4, h * 0.34, r * 0.7); ctx.fill();
+
+  const bx = x + w * 0.07, by = y + h * 0.08, bw = w * 0.36, bh = h * 0.3;
+  ctx.fillStyle = 'rgba(250,248,240,0.94)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = n.dark; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  drawUnitSymbol(ctx, type, bx, by, bw, bh, '#1d1d1d');
+  const fw = w * 0.26, fh = h * 0.2, fx = x + w - fw - w * 0.07;
+  drawFlag(ctx, nationKey, fx, by, fw, fh);
+
+  const withHp = hp !== undefined;
+  drawUnitIcon(ctx, type, x + w * 0.08, y + h * 0.42, w * 0.84, h * (withHp ? 0.42 : 0.5), n.text);
+  if (withHp) {
+    const barX = x + w * 0.07, barY = y + h * 0.87, barW = w * 0.86, barH = Math.max(2, h * 0.07);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(barX, barY, barW, barH);
+    const f = hp / 10;
+    ctx.fillStyle = f > 0.6 ? '#7fd36b' : f > 0.3 ? '#f2c14e' : '#e9573f';
+    ctx.fillRect(barX, barY, barW * f, barH);
+    ctx.fillStyle = n.text;
+    ctx.font = `bold ${Math.round(h * 0.3)}px "Oswald", system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(hp), (bx + bw + fx) / 2, by + bh / 2 + 1);
+  }
+}
+
 class View {
   constructor(canvas) {
     this.canvas = canvas;
@@ -131,6 +253,7 @@ class View {
     this.effects = [];
     this.overlay = { reach: null, targets: [], path: null, selected: null, hover: null, buyTile: null };
     this.terrainCache = null;
+    this.viewer = -1; // Perspektive für den Nebel des Krieges; -1 = alles sichtbar
     window.addEventListener('resize', () => this.resize());
     this.frame = this.frame.bind(this);
     requestAnimationFrame(this.frame);
@@ -375,6 +498,21 @@ class View {
       ctx.beginPath(); ctx.moveTo(x + s * 0.18, y - s * 0.86); ctx.lineTo(x + s * 0.18, y - s * 0.4); ctx.stroke();
     }
 
+    // Nebel des Krieges
+    const vis = this.viewer >= 0 && g.fog && !g.gameOver ? g.visibleTiles(this.viewer) : null;
+    this.vis = vis;
+    if (vis) {
+      const explored = g.explored[this.viewer];
+      for (const t of g.map.tiles.values()) {
+        const k = hexKey(t.q, t.r);
+        if (vis.has(k)) continue;
+        const [x, y] = this.center(t.q, t.r);
+        hexPath(ctx, x, y, s + 0.5);
+        ctx.fillStyle = explored.has(k) ? 'rgba(18,22,14,0.5)' : 'rgba(12,14,10,0.9)';
+        ctx.fill();
+      }
+    }
+
     // Reichweite
     if (ov.reach) {
       for (const [k, info] of ov.reach) {
@@ -416,6 +554,7 @@ class View {
     // Einheiten
     const sorted = [...g.units].sort((a, b) => a.r - b.r);
     for (const u of sorted) {
+      if (vis && !g.canSee(this.viewer, u)) continue;
       const [x, y] = this.unitPos(u, now);
       this.drawUnit(ctx, u, x, y, now);
     }
@@ -435,49 +574,21 @@ class View {
   drawUnit(ctx, u, x, y, now) {
     const g = this.game, s = this.size;
     const st = g.stats(u);
-    const n = g.nationOf(u.owner);
     const done = u.owner === g.current && !g.gameOver && g.attackTargets(u).length === 0 && !g.canMove(u);
-    const w = s * 1.12, h = s * 0.84;
+    const w = s * 1.3, h = s * 1.0;
     const bob = st.isAir ? Math.sin(now / 400 + u.id) * s * 0.04 - s * 0.06 : 0;
     const cy = y + bob;
     ctx.save();
     if (st.isAir) {
       ctx.fillStyle = 'rgba(0,0,0,0.22)';
-      ctx.beginPath(); ctx.ellipse(x + 3, y + h * 0.45, w * 0.4, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + 3, y + h * 0.48, w * 0.4, h * 0.13, 0, 0, Math.PI * 2); ctx.fill();
     }
     ctx.fillStyle = 'rgba(0,0,0,0.38)';
-    roundRect(ctx, x - w / 2 + 2, cy - h / 2 + 3, w, h, s * 0.12); ctx.fill();
-    ctx.fillStyle = n.color;
-    roundRect(ctx, x - w / 2, cy - h / 2, w, h, s * 0.12); ctx.fill();
-    ctx.strokeStyle = n.dark; ctx.lineWidth = 1.5; ctx.stroke();
-    // Glanzkante
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    roundRect(ctx, x - w / 2 + 2, cy - h / 2 + 2, w - 4, h * 0.3, s * 0.08); ctx.fill();
-
-    const bw = w * 0.52, bh = h * 0.42;
-    const bx = x - bw / 2 - w * 0.08, by = cy - h / 2 + h * 0.12;
-    ctx.fillStyle = 'rgba(250,248,240,0.92)';
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeStyle = n.dark; ctx.lineWidth = 1;
-    ctx.strokeRect(bx, by, bw, bh);
-    drawUnitSymbol(ctx, u.type, bx, by, bw, bh, '#1d1d1d');
-    drawFlag(ctx, g.players[u.owner].nation, bx + bw + w * 0.05, by, w * 0.22, h * 0.17);
-
-    // Stärke
-    ctx.fillStyle = n.text;
-    ctx.font = `bold ${Math.round(s * 0.3)}px "Oswald", system-ui, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText(String(u.hp), x - w * 0.08, cy + h / 2 - h * 0.08);
-    // Stärkebalken
-    const barX = bx + bw + w * 0.05, barW = w * 0.22, barY = by + h * 0.24, barH = h * 0.52;
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(barX, barY, barW, barH);
-    const frac = u.hp / 10;
-    ctx.fillStyle = frac > 0.6 ? '#7fd36b' : frac > 0.3 ? '#f2c14e' : '#e9573f';
-    ctx.fillRect(barX + 1, barY + 1 + (barH - 2) * (1 - frac), barW - 2, (barH - 2) * frac);
-
+    roundRect(ctx, x - w / 2 + 2, cy - h / 2 + 3, w, h, h * 0.14); ctx.fill();
+    drawCounter(ctx, g.players[u.owner].nation, u.type, x - w / 2, cy - h / 2, w, h, u.hp);
     if (done) {
       ctx.fillStyle = 'rgba(20,20,20,0.45)';
-      roundRect(ctx, x - w / 2, cy - h / 2, w, h, s * 0.12); ctx.fill();
+      roundRect(ctx, x - w / 2, cy - h / 2, w, h, h * 0.14); ctx.fill();
     }
     ctx.restore();
   }
@@ -485,8 +596,10 @@ class View {
   drawEffects(ctx, now) {
     const s = this.size;
     this.effects = this.effects.filter(e => now - e.start < e.dur);
+    const seen = (q, r) => !this.vis || this.vis.has(hexKey(q, r));
     for (const e of this.effects) {
       const t = (now - e.start) / e.dur;
+      if (e.kind === 'shot' ? !seen(...e.from) && !seen(...e.to) : !seen(e.q, e.r)) continue;
       if (e.kind === 'text') {
         const [x, y] = this.center(e.q, e.r);
         ctx.save();
