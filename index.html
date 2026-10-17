@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hexfront 39–45</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=Special+Elite&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">Hexfront <span>39–45</span></div>
+      <div id="turnInfo" class="turn-info"></div>
+      <div class="actions">
+        <button id="nextUnitBtn" class="btn ghost" title="Nächste bereite Einheit (N)">Nächste Einheit</button>
+        <button id="endTurnBtn" class="btn primary" title="Zug beenden (E)">Zug beenden</button>
+        <button id="menuBtn" class="btn ghost" title="Neues Spiel">Menü</button>
+      </div>
+    </header>
+    <main>
+      <div id="board">
+        <canvas id="map"></canvas>
+        <div id="tooltip" class="tooltip hidden"></div>
+        <div id="aiBanner" class="ai-banner hidden"></div>
+      </div>
+      <aside id="side">
+        <section id="infoPanel" class="panel"></section>
+        <section id="buyPanel" class="panel hidden"></section>
+        <section class="panel log-panel">
+          <h3>Kriegstagebuch</h3>
+          <ol id="log"></ol>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <div id="overlay" class="overlay hidden"><div id="overlayContent" class="dialog"></div></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/hex.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
