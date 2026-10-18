@@ -168,11 +168,18 @@ class Game {
     return d >= range[0] && d <= range[1];
   }
 
+  // Angriffswert inklusive Abzügen (Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).
   attackValue(att, def) {
     const a = this.stats(att), d = this.stats(def);
-    if (d.isAir) return a.air;
-    return a.soft * (1 - d.armor) + a.hard * d.armor;
+    let v;
+    if (d.isAir) v = a.air * (a.isAir || a.aa ? 1 : GROUND_VS_AIR_MUL);
+    else v = a.soft * (1 - d.armor) + a.hard * d.armor;
+    if (this.isSurprised(att)) v *= AMBUSH_ATTACK_MUL;
+    return v;
   }
+
+  // In einen Hinterhalt geratene Einheiten kämpfen bis zum Ende des gegnerischen Zuges geschwächt.
+  isSurprised(u) { return u.surprisedUntil >= this.halfTurn; }
 
   targetsFrom(u, q, r) {
     return this.units.filter(e => e.owner !== u.owner && this.inRange(u, q, r, e) && this.attackValue(u, e) > 0 && this.canSee(u.owner, e));
@@ -250,15 +257,16 @@ class Game {
     }
     const path = planned.slice(0, stand + 1);
     if (stand > 0 || ambush) u.moved = true;
+    if (ambush || stopped) u.surprisedUntil = this.halfTurn + 1;
     if (stand > 0) {
       [u.q, u.r] = parseKey(planned[stand]);
       this.version++;
     }
     if (ambush) {
       ambush.revealUntil = Math.max(ambush.revealUntil || 0, this.halfTurn);
-      this.addLog(`Hinterhalt! ${this.stats(u).name} stößt auf ${this.stats(ambush).name}.`, u.owner);
+      this.addLog(`Hinterhalt! ${this.stats(u).name} stößt auf ${this.stats(ambush).name} (−60 % Angriff).`, u.owner);
     } else if (stopped) {
-      this.addLog(`Hinterhalt! ${this.stats(u).name} trifft auf versteckten Feind und hält an.`, u.owner);
+      this.addLog(`Hinterhalt! ${this.stats(u).name} trifft auf versteckten Feind und hält an (−60 % Angriff).`, u.owner);
     }
     return { path, ambush, stopped, capture: this.tryCapture(u) };
   }
@@ -341,6 +349,7 @@ class Game {
     const p = this.players[this.current];
     const income = this.incomeOf(this.current);
     p.funds += income;
+    let repaired = 0;
     for (const u of this.units) {
       if (u.owner !== this.current) continue;
       u.moved = false;
@@ -348,9 +357,11 @@ class Game {
       const t = this.tileOf(u);
       if (t.owner === this.current && TERRAIN[t.terrain].capturable && u.hp < 10) {
         u.hp = Math.min(10, u.hp + HEAL_PER_TURN);
+        repaired++;
       }
     }
     this.addLog(`Runde ${this.turn}: ${this.nationOf(this.current).short} ist am Zug (+${income} Nachschub).`, this.current);
+    if (repaired) this.addLog(`${repaired} Einheit(en) in Städten repariert (+${HEAL_PER_TURN} Stärke).`, this.current);
   }
 
   checkWinner() {

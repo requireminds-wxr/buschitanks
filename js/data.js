@@ -2,7 +2,9 @@
 
 const START_FUNDS = 500;
 const MAX_TURNS = 40;
-const HEAL_PER_TURN = 2;
+const HEAL_PER_TURN = 3;
+const AMBUSH_ATTACK_MUL = 0.4;   // überraschte Einheiten: −60 % Angriff
+const GROUND_VS_AIR_MUL = 0.8;   // Bodeneinheiten ohne Flak: −20 % gegen Flugzeuge
 const IMPASSABLE = 99;
 
 const TERRAIN = {
@@ -20,17 +22,17 @@ const MOVE_TYPE_LABEL = { foot: 'zu Fuß', wheel: 'Räder', track: 'Ketten', air
 
 // soft/hard/air = Angriffswert gegen ungepanzerte, gepanzerte und Luftziele.
 // armor: 0 = weiches Ziel, 0.5 = leicht gepanzert, 1 = Panzer.
-// vision: Sichtweite in Feldern. spotter: sieht auch in Wälder hinein.
+// vision: Sichtweite in Feldern. spotter: sieht auch in Wälder hinein. aa: Flak (volle Wirkung gegen Flugzeuge).
 const UNIT_TYPES = {
   inf:   { label: 'Infanterie',      moveType: 'foot',  move: 3, soft: 6, hard: 2,  air: 1,  def: 5,  armor: 0,   range: [1, 1], vision: 2, cost: 100, capture: true },
-  recon: { label: 'Aufklärung',      moveType: 'wheel', move: 6, soft: 5, hard: 2,  air: 3,  def: 3,  armor: 0.5, range: [1, 1], vision: 4, cost: 150, spotter: true },
-  tank:  { label: 'Panzer',          moveType: 'track', move: 5, soft: 7, hard: 7,  air: 1,  def: 7,  armor: 1,   range: [1, 1], vision: 2, cost: 300 },
-  heavy: { label: 'Schwerer Panzer', moveType: 'track', move: 4, soft: 8, hard: 10, air: 1,  def: 10, armor: 1,   range: [1, 1], vision: 2, cost: 500 },
+  recon: { label: 'Aufklärung',      moveType: 'wheel', move: 8, soft: 5, hard: 2,  air: 3,  def: 3,  armor: 0.5, range: [1, 1], vision: 4, cost: 150, spotter: true },
+  tank:  { label: 'Panzer',          moveType: 'track', move: 6, soft: 7, hard: 7,  air: 1,  def: 7,  armor: 1,   range: [1, 1], vision: 2, cost: 300 },
+  heavy: { label: 'Schwerer Panzer', moveType: 'track', move: 3, soft: 8, hard: 10, air: 1,  def: 10, armor: 1,   range: [1, 1], vision: 2, cost: 500 },
   at:    { label: 'Panzerabwehr',    moveType: 'foot',  move: 3, soft: 2, hard: 9,  air: 0,  def: 5,  armor: 0,   range: [1, 1], vision: 2, cost: 200 },
   art:   { label: 'Artillerie',      moveType: 'wheel', move: 4, soft: 9, hard: 5,  air: 0,  def: 2,  armor: 0,   range: [2, 3], vision: 1, cost: 250, noCounter: true, noMoveAndFire: true },
-  lflak: { label: 'Leichte Flak',    moveType: 'wheel', move: 5, soft: 7, hard: 2,  air: 9,  def: 3,  armor: 0,   range: [1, 2], vision: 2, cost: 200 },
-  hflak: { label: 'Schwere Flak',    moveType: 'wheel', move: 3, soft: 4, hard: 9,  air: 10, def: 4,  armor: 0,   range: [2, 3], vision: 2, cost: 350, noMoveAndFire: true },
-  air:   { label: 'Jagdbomber',      moveType: 'air',   move: 7, soft: 7, hard: 6,  air: 6,  def: 4,  armor: 0,   range: [1, 1], vision: 3, cost: 400, isAir: true, spotter: true },
+  lflak: { label: 'Leichte Flak',    moveType: 'wheel', move: 7, soft: 7, hard: 2,  air: 9,  def: 3,  armor: 0,   range: [1, 2], vision: 2, cost: 200, aa: true },
+  hflak: { label: 'Schwere Flak',    moveType: 'wheel', move: 2, soft: 4, hard: 9,  air: 10, def: 4,  armor: 0,   range: [2, 3], vision: 2, cost: 350, noMoveAndFire: true, aa: true },
+  air:   { label: 'Jagdbomber',      moveType: 'air',   move: 8, soft: 7, hard: 6,  air: 6,  def: 4,  armor: 0,   range: [1, 1], vision: 3, cost: 400, isAir: true, spotter: true },
 };
 
 const UNIT_ORDER = ['inf', 'recon', 'tank', 'heavy', 'at', 'art', 'lflak', 'hflak', 'air'];

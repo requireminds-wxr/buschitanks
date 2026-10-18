@@ -590,6 +590,15 @@ class View {
       ctx.fillStyle = 'rgba(20,20,20,0.45)';
       roundRect(ctx, x - w / 2, cy - h / 2, w, h, h * 0.14); ctx.fill();
     }
+    if (g.isSurprised(u)) {
+      // Überraschte Einheit: oranges Warnzeichen links unten.
+      const rr = s * 0.17, mx = x - w / 2 + rr * 0.6, my = cy + h / 2 - rr * 0.6;
+      ctx.fillStyle = '#ff9b6a'; ctx.strokeStyle = '#1d1a10'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(mx, my, rr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1d1a10'; ctx.font = `bold ${Math.round(rr * 1.6)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('!', mx, my + 1);
+    }
     ctx.restore();
   }
 

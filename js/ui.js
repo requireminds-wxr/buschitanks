@@ -99,10 +99,12 @@ class Controller {
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
           <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge, Radfahrzeuge nicht in Sümpfe.</li>
           <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
-          <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch.</li>
-          <li><b>Flak:</b> Leichte Flak (2–4 cm) wirkt auf 1–2 Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf 2–3 Felder, stark gegen Flugzeuge und Panzer, darf aber nicht im selben Zug ziehen und feuern.</li>
+          <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch, ist aber überrascht: −60 % Angriffskraft (auch beim Gegenschlag) bis zum Ende des gegnerischen Zuges.</li>
+          <li><b>Flak:</b> Leichte Flak (2–4 cm) wirkt auf 1–2 Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf 2–3 Felder, stark gegen Flugzeuge und Panzer, ist aber kaum beweglich (2 Felder) und darf nicht im selben Zug ziehen und feuern. Leichte Flak ist motorisiert und schnell (7 Felder).</li>
+          <li><b>Luftabwehr:</b> Artillerie und Panzerabwehr können keine Flugzeuge angreifen. Andere Bodeneinheiten außer Flak haben gegen Flugzeuge nur 80 % Angriffskraft.</li>
+          <li><b>Beweglichkeit:</b> Aufklärer 8, Panzer 6, schwere Panzer 3, Infanterie 3, Flugzeuge 8 Felder (unabhängig vom Gelände).</li>
           <li><b>Kontrollzone:</b> Bodeneinheiten müssen anhalten, sobald sie neben eine feindliche Bodeneinheit ziehen. Flugzeuge ignorieren das.</li>
-          <li><b>Städte:</b> Nur Infanterie kann Städte erobern (einfach daraufziehen). Jede Stadt bringt Nachschub, im eigenen HQ und in eigenen Städten können neue Einheiten ausgehoben werden. Einheiten in eigenen Städten erholen sich um ${HEAL_PER_TURN} Stärkepunkte pro Runde.</li>
+          <li><b>Städte:</b> Nur Infanterie kann Städte erobern (einfach daraufziehen). Jede Stadt bringt Nachschub, im eigenen HQ und in eigenen Städten können neue Einheiten ausgehoben werden. Beschädigte Einheiten, die ihren Zug in einer eigenen Stadt oder im eigenen HQ beginnen, werden kostenlos um ${HEAL_PER_TURN} Stärkepunkte repariert.</li>
           <li><b>Tasten:</b> E = Zug beenden, N = nächste Einheit, Esc / Rechtsklick = Auswahl aufheben.</li>
         </ul>
       </details>`);
@@ -356,7 +358,10 @@ class Controller {
         html = `<b>${esc(g.stats(sel).name)}</b> → <b>${esc(g.stats(unit).name)}</b><br>
           Schaden: <span class="dmg">${range(f.min, f.max)}</span> (Ziel hat ${unit.hp})<br>
           Gegenschlag: <span class="ctr">${f.cmax ? range(f.cmin, f.cmax) : 'keiner'}</span>
-          ${f.kill ? '<br><b>Sicher vernichtet</b>' : f.mayKill ? '<br>Vernichtung möglich' : ''}`;
+          ${f.kill ? '<br><b>Sicher vernichtet</b>' : f.mayKill ? '<br>Vernichtung möglich' : ''}
+          ${g.isSurprised(sel) ? '<br><i>Überrascht: −60 % Angriff</i>' : ''}
+          ${g.stats(unit).isAir && !g.stats(sel).aa && !g.stats(sel).isAir ? '<br><i>Ohne Flak: 80 % gegen Flugzeuge</i>' : ''}
+          ${g.isSurprised(unit) && f.cmax ? '<br><i>Ziel ist überrascht (−60 %)</i>' : ''}`;
       } else if (ov.reach && !unit) {
         const k = hexKey(t.q, t.r);
         const info = ov.reach.get(k);
@@ -453,6 +458,12 @@ class Controller {
       else if (g.attackTargets(u).length) status = '<span class="status ready">Kann angreifen</span>';
       else status = '<span class="status">Befehle ausgeführt</span>';
     }
+    if (g.isSurprised(u)) status += ' <span class="status warn">Überrascht: −60 % Angriff</span>';
+    const tileNow = g.tileOf(u);
+    const repairHint = u.hp < 10 && tileNow.owner === u.owner && terr.capturable
+      ? `<p class="hint">Wird zu Beginn des nächsten eigenen Zuges um ${HEAL_PER_TURN} repariert.</p>`
+      : u.hp < 10 && u.owner === g.current ? '<p class="hint">Beschädigt – in einer eigenen Stadt wird repariert.</p>' : '';
+    const airNote = s.air > 0 && !s.isAir && !s.aa ? ` <small>(×${GROUND_VS_AIR_MUL} = ${Math.round(s.air * GROUND_VS_AIR_MUL * 10) / 10})</small>` : '';
     el.innerHTML = `
       <div class="unit-card">
         <div class="head"><span id="unitIcon"></span>
@@ -461,7 +472,7 @@ class Controller {
         <div class="hpbar"><div style="width:${frac * 100}%;background:${color}"></div></div>
         <dl class="stats">
           <dt>Stärke</dt><dd>${u.hp} / 10</dd>
-          <dt>Angriff weich / hart / Luft</dt><dd>${s.soft} / ${s.hard} / ${s.air}</dd>
+          <dt>Angriff weich / hart / Luft</dt><dd>${s.soft} / ${s.hard} / ${s.air ? s.air : '–'}${airNote}</dd>
           <dt>Verteidigung</dt><dd>${s.def} ${g.terrainDefense(u, u.q, u.r) ? `+${g.terrainDefense(u, u.q, u.r)} (${terr.name})` : ''}</dd>
           <dt>Bewegung</dt><dd>${s.move} (${MOVE_TYPE_LABEL[s.moveType]})</dd>
           <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}</dd>
@@ -471,6 +482,8 @@ class Controller {
         ${status}
         ${s.noMoveAndFire ? '<p class="hint">Kann nicht im selben Zug ziehen und feuern.</p>' : ''}
         ${s.capture ? '<p class="hint">Kann Städte und Hauptquartiere erobern.</p>' : ''}
+        ${!s.air ? '<p class="hint">Kann keine Flugzeuge angreifen.</p>' : ''}
+        ${repairHint}
       </div>`;
     $('unitIcon').appendChild(unitIconCanvas(g.players[u.owner].nation, u.type));
   }

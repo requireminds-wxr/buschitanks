@@ -18,7 +18,10 @@ python3 -m http.server 8765
 - Zufällige, punktsymmetrische Karten in drei Größen; ein Seed reproduziert die Karte.
 - 9 Einheitentypen: Infanterie, Aufklärung, Panzer, Schwerer Panzer, Panzerabwehr, Artillerie, Leichte Flak, Schwere Flak, Jagdbomber – jeweils mit NATO-Symbol und Silhouetten-Icon.
 - Nebel des Krieges (abschaltbar): Jeder Typ hat eine Sichtweite, Aufklärer und Flugzeuge sehen in Wälder. Nur aufgeklärte Gegner sind sichtbar und angreifbar; unentdeckte Gegner führen zu Hinterhalten.
-- Leichte Flak (1–2 Felder) ist auch gegen weiche Ziele stark, schwere Flak wie die 8,8 cm (2–3 Felder) auch gegen Panzer.
+- Leichte Flak (1–2 Felder, schnell motorisiert) ist auch gegen weiche Ziele stark, schwere Flak wie die 8,8 cm (2–3 Felder, kaum beweglich) auch gegen Panzer.
+- Artillerie und Panzerabwehr können keine Flugzeuge angreifen; andere Bodeneinheiten außer Flak haben gegen Flugzeuge nur 80 % Angriffskraft.
+- Wer in einen Hinterhalt läuft, ist überrascht und hat bis zum Ende des gegnerischen Zuges 60 % weniger Angriffskraft.
+- Beschädigte Einheiten werden in eigenen Städten und im HQ repariert (+3 Stärke pro Runde).
 - Sieg durch Eroberung des feindlichen Hauptquartiers oder Vernichtung aller feindlichen Einheiten; nach 40 Runden entscheiden Städte und Truppenstärke.
 
 Die vollständigen Regeln stehen im Startbildschirm unter „Spielregeln“.

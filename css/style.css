@@ -93,6 +93,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .hpbar > div { height: 100%; }
 .status { display: inline-block; margin-top: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: var(--panel-2); color: var(--muted); }
 .status.ready { color: var(--ok); }
+.status.warn { color: #ff9b6a; }
 .hint { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; }
 .hint kbd { font: 12px var(--font-ui); background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
 
