@@ -265,31 +265,56 @@ function driveBob(moveType, now, h) {
     : Math.sin(now / (moveType === 'track' ? 28 : 55)) * h * 0.015;
 }
 
+// Bild samt weichem Schatten, einmal je Zeichengröße vorberechnet: shadowBlur in
+// jedem Frame wäre teuer. scale = Gerätepixel je Einheit des Zielkontexts.
+function shadowedImage(sp, img, dw, dh, scale) {
+  const pw = Math.max(1, Math.round(dw * scale)), key = (img === sp.base ? 'b' : 'r') + pw;
+  const cache = sp.shadows || (sp.shadows = new Map());
+  let c = cache.get(key);
+  if (!c) {
+    if (cache.size >= 16) cache.clear();
+    const ph = Math.max(1, Math.round(dh * scale)), blur = Math.max(1, dh * 0.08);
+    const pad = Math.ceil(blur * 1.5) + 1;
+    c = document.createElement('canvas');
+    c.width = pw + pad * 2; c.height = ph + pad * 2;
+    const g = c.getContext('2d');
+    g.shadowColor = 'rgba(0,0,0,0.5)'; g.shadowBlur = blur;
+    g.drawImage(img, pad, pad, pw, ph);
+    c.pad = pad / scale; c.scale = scale;
+    cache.set(key, c);
+  }
+  return c;
+}
+
+function drawShadowed(ctx, sp, img, x, y, dw, dh, scale) {
+  const c = shadowedImage(sp, img, dw, dh, scale);
+  ctx.drawImage(c, x - c.pad, y - c.pad, c.width / c.scale, c.height / c.scale);
+}
+
 // pose: dir (1 = nach rechts, −1 = nach links, Zwischenwerte beim Wenden),
 // elev (Rohrerhöhung in Rad), recoil (0–1), flash (0–1), bob (Versatz in px).
 function drawUnitSprite(ctx, sp, x, y, w, h, pose = {}) {
   const m = sp.meta, k = Math.min(w / m.w, h / m.h);
   const dw = m.w * k, dh = m.h * k;
   const { dir = 1, elev = 0, recoil = 0, flash = 0, bob = 0 } = pose;
+  const t = ctx.getTransform(), scale = Math.hypot(t.c, t.d) || 1;
   ctx.save();
   ctx.translate(x + w / 2, y + (h - dh) / 2 + bob);
   ctx.scale(dir, 1);
   ctx.translate(-dw / 2 - recoil * dw * (sp.barrel ? 0.015 : 0.04), 0);
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = Math.max(1, dh * 0.08);
   let mx = m.muzzle[0] * dw, my = m.muzzle[1] * dh;
   if (sp.barrel) {
     // Rohr hinter dem Körper zeichnen, damit es beim Rückstoß in der Blende verschwindet.
     const px = m.pivot[0] * dw, py = m.pivot[1] * dh, c = Math.cos(elev), s = Math.sin(elev);
     ctx.save();
     ctx.translate(px, py); ctx.rotate(-elev); ctx.translate(-recoil * dw * 0.07, 0);
-    ctx.drawImage(sp.barrel, -px, -py, dw, dh);
+    drawShadowed(ctx, sp, sp.barrel, -px, -py, dw, dh, scale);
     ctx.restore();
     const dx = mx - px - recoil * dw * 0.07, dy = my - py;
     mx = px + dx * c + dy * s; my = py - dx * s + dy * c;
   }
-  ctx.drawImage(sp.base, 0, 0, dw, dh);
+  drawShadowed(ctx, sp, sp.base, 0, 0, dw, dh, scale);
   if (flash > 0) {
-    ctx.shadowColor = 'transparent';
     const r = Math.max(3, dh * 0.4) * flash;
     ctx.translate(mx, my); ctx.rotate(-elev);
     const grd = ctx.createRadialGradient(r * 0.3, 0, 0, r * 0.3, 0, r);
