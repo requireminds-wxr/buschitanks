@@ -43,9 +43,13 @@
       if (e.filename && e.filename.includes('config/einheiten.js') && !window.CONFIG_LOAD_ERROR) {
         window.CONFIG_LOAD_ERROR = `${e.message} (Zeile ${e.lineno})`;
       }
+      if (e.filename && e.filename.includes('config/nationen.js') && !window.CONFIG_LOAD_ERROR_NATIONS) {
+        window.CONFIG_LOAD_ERROR_NATIONS = `${e.message} (Zeile ${e.lineno})`;
+      }
     });
   </script>
   <script src="config/einheiten.js"></script>
+  <script src="config/nationen.js"></script>
   <script src="js/data.js"></script>
   <script src="js/hex.js"></script>
   <script src="js/map.js"></script>

@@ -13,7 +13,7 @@ python3 -m http.server 8765
 
 ## Spiel
 
-- **Achsenmächte** (Deutschland, Italien, Japan) gegen **Alliierte** (USA, Großbritannien, Sowjetunion). Jede Nation hat eigene Einheitennamen und einen Bonus.
+- **Achsenmächte** (Deutschland, Italien, Japan) gegen **Alliierte** (USA, Großbritannien, Sowjetunion). Jede Nation hat eigene Einheitennamen und an der historischen Ausrüstung orientierte Stärken und Schwächen.
 - Mensch gegen Computer, Hotseat (zwei Menschen) oder Computer gegen Computer.
 - Zufällige, punktsymmetrische Karten in zwei Größen (mittel, groß) mit Straßennetz zwischen HQs und Städten; ein Seed reproduziert die Karte.
 - 11 Einheitentypen: Infanterie, Aufklärung, LKW, Halbkettenfahrzeug, Panzer, Schwerer Panzer, Panzerabwehr, Artillerie, Leichte Flak, Schwere Flak, Jagdbomber – jeweils mit NATO-Symbol und Silhouetten-Icon.
@@ -31,9 +31,12 @@ Die vollständigen Regeln stehen im Startbildschirm unter „Spielregeln“.
 
 **Bedienung:** Einheit anklicken → blaues Feld zum Ziehen → rot markiertes Ziel zum Angreifen. Eigene leere Stadt anklicken, um Truppen auszuheben. Zum Verladen Fahrzeug und Einheit nebeneinander stellen und nacheinander anklicken; nach der Fahrt ein gelbes Feld zum Absetzen anklicken. `N` nächste Einheit, `E` Zug beenden, `U` Ladung absetzen, `Esc`/Rechtsklick Auswahl aufheben.
 
-## Einheiten anpassen
+## Einheiten und Nationen anpassen
 
-Alle Einheitenwerte (Bewegung, Angriff, Verteidigung, Reichweite, Sicht, Kosten, Fähigkeiten) stehen in [`config/einheiten.js`](config/einheiten.js). Werte ändern, speichern, Spiel neu laden – die Änderungen gelten ab dem nächsten Spiel. Die Datei erklärt jedes Attribut. Bei Tippfehlern oder ungültigen Werten zeigt das Spiel beim Start eine Fehlerliste statt des Menüs.
+- [`config/einheiten.js`](config/einheiten.js): Grundwerte aller Einheiten (Bewegung, Angriff, Verteidigung, Reichweite, Sicht, Kosten, Fähigkeiten).
+- [`config/nationen.js`](config/nationen.js): Nationen mit Namen, Farben, Preis- und Einkommensfaktor, Einheitennamen und den Abweichungen ihrer Einheiten von den Grundwerten (orientiert an der historischen Bewaffnung und Panzerung).
+
+Werte ändern, speichern, Spiel neu laden – die Änderungen gelten ab dem nächsten Spiel. Beide Dateien erklären jedes Attribut. Bei Tippfehlern oder ungültigen Werten zeigt das Spiel beim Start eine Fehlerliste statt des Menüs.
 
 Für die Online-Version müssen Änderungen committet und gepusht werden.
 
@@ -42,7 +45,8 @@ Für die Online-Version müssen Änderungen committet und gepusht werden.
 | Datei | Inhalt |
 |---|---|
 | `config/einheiten.js` | Einheitenwerte zum Anpassen |
-| `js/data.js` | Gelände, Nationen und Boni; prüft die Einheiten-Konfiguration |
+| `config/nationen.js` | Nationen, Boni und Einheitennamen zum Anpassen |
+| `js/data.js` | Gelände; lädt und prüft die Konfiguration |
 | `js/hex.js` | Hex-Koordinaten, Distanzen, Zufallsgenerator |
 | `js/map.js` | Kartengenerator |
 | `js/game.js` | Spielregeln (ohne DOM) |

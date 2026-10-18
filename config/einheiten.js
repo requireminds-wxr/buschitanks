@@ -6,8 +6,8 @@
 //  speichern, Spiel im Browser neu laden (bei Bedarf Cmd+Shift+R) – fertig.
 //  Ein laufendes Spiel übernimmt die Änderungen erst nach dem Neuladen.
 //
-//  Nationsboni (z. B. Tiger +1 Angriff, T-34 +1 Bewegung) kommen zusätzlich
-//  oben drauf; sie stehen in js/data.js unter NATIONS.
+//  Die Abweichungen der Nationen (z. B. Tiger +2 Angriff, T-34 +1 Bewegung)
+//  kommen zusätzlich oben drauf; sie stehen in config/nationen.js.
 //
 //  Regeln für Änderungen:
 //  - Die Schlüssel (inf, recon, tank, …) nicht umbenennen, löschen oder neue

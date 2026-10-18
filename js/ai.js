@@ -364,6 +364,18 @@ async function aiPickup(game, view, t) {
   return false;
 }
 
+// Gefahr für ein beladenes Fahrzeug: sichtbare Gegner, die das Feld im nächsten Zug erreichen könnten.
+const CARGO_SAFE_DIST = 4;
+function cargoDanger(enemies, q, r) {
+  let d = 0;
+  for (const e of enemies) {
+    const dist = hexDistance(q, r, e.q, e.r);
+    if (dist <= 1) d += 3;
+    else if (dist <= CARGO_SAFE_DIST) d += 1;
+  }
+  return d;
+}
+
 async function aiDeliver(game, view, t) {
   const me = t.owner;
   const cargo = t.cargo;
@@ -371,29 +383,42 @@ async function aiDeliver(game, view, t) {
   const enemies = game.visibleEnemies(me);
   const reach = game.canMove(t) ? game.reachable(t) : new Map([[hexKey(t.q, t.r), { cost: 0, stop: true }]]);
   const cargoType = cs.moveType;
+  const foreignCities = [...game.map.tiles.values()].filter(x => TERRAIN[x.terrain].capturable && x.owner !== me);
+  const cityDist = cs.capture && foreignCities.length
+    ? game.distanceMap(foreignCities.map(x => hexKey(x.q, x.r)), cargoType) : new Map();
   let best = null;
   for (const [k, info] of reach) {
     if (!info.stop) continue;
     const [q, r] = parseKey(k);
-    const danger = enemies.filter(e => hexDistance(q, r, e.q, e.r) <= 1).length;
+    const danger = cargoDanger(enemies, q, r);
     for (const [uq, ur] of hexNeighbors(q, r)) {
       const tile = game.tile(uq, ur);
       const uk = hexKey(uq, ur);
       if (!tile || game.unitAt(uq, ur) || TERRAIN[tile.terrain].cost[cargoType] >= IMPASSABLE) continue;
+      const minDist = enemies.reduce((m, e) => Math.min(m, hexDistance(uq, ur, e.q, e.r)), 99);
       let score = -Infinity;
       if (cs.capture && TERRAIN[tile.terrain].capturable && tile.owner !== me) {
         const winning = game.citiesOf(me) === game.totalCities() - 1;
         score = winning ? 1e6 : 500;
+      } else if (cs.capture) {
+        // Infanterie nahe einer fremden Stadt absetzen, statt sie weiter spazieren zu fahren.
+        const d = cityDist.get(uk);
+        if (d !== undefined && d <= 3 && minDist >= 2) score = 60 - d * 8;
       } else if (cs.towed) {
-        const minDist = enemies.reduce((m, e) => Math.min(m, hexDistance(uq, ur, e.q, e.r)), 99);
         const targets = enemies.filter(e => {
           const d = hexDistance(uq, ur, e.q, e.r);
           return d >= cs.range[0] && d <= cs.range[1] && game.attackValue(cargo, e, 0) > 0;
         }).length;
         if (targets && minDist >= 2) score = 100 + targets * 10 + game.terrainDefense(cargo, uq, ur) * 3;
+        else if (minDist >= 3) {
+          // Noch kein Ziel in Reichweite: in Stellung gehen, sobald Gegner oder fremde Städte nahe sind.
+          const front = Math.min(minDist,
+            foreignCities.reduce((m, x) => Math.min(m, hexDistance(uq, ur, x.q, x.r)), 99));
+          if (front <= cs.range[1] + 2) score = 70 - front * 3 + game.terrainDefense(cargo, uq, ur) * 3;
+        }
       }
       if (score === -Infinity) continue;
-      score -= danger * 40 + info.cost;
+      score -= danger * 25 + info.cost;
       if (!best || score > best.score) best = { score, key: k, drop: uk };
     }
   }
@@ -412,7 +437,7 @@ async function aiDeliver(game, view, t) {
   if (!game.canMove(t)) return;
   // Kein Absetzpunkt: Richtung Front (sichtbare Gegner bzw. fremde Städte) fahren.
   const goals = enemies.map(e => hexKey(e.q, e.r));
-  for (const x of game.map.tiles.values()) if (TERRAIN[x.terrain].capturable && x.owner !== me) goals.push(hexKey(x.q, x.r));
+  for (const x of foreignCities) goals.push(hexKey(x.q, x.r));
   await aiDriveToward(game, view, t, goals);
 }
 
@@ -425,7 +450,9 @@ async function aiDriveToward(game, view, t, goals) {
   const valueOf = k => {
     const [q, r] = parseKey(k);
     let v = dist.has(k) ? dist.get(k) : 999;
-    if (enemies.some(e => hexDistance(q, r, e.q, e.r) <= 2)) v += 8;
+    // Beladen deutlich mehr Abstand halten: mit dem Fahrzeug geht auch die Ladung verloren.
+    if (t.cargo) v += cargoDanger(enemies, q, r) * 6;
+    else if (enemies.some(e => hexDistance(q, r, e.q, e.r) <= 2)) v += 8;
     if (blocksCity(game, t, game.tile(q, r))) v += 8;
     return v;
   };

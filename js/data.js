@@ -1,4 +1,4 @@
-// Spieldaten: Gelände, Einheitentypen und Nationen.
+// Spieldaten: Gelände, Einheitentypen und Nationen (Werte aus config/).
 
 const START_FUNDS = 500;
 const MAX_TURNS = 50;
@@ -68,59 +68,56 @@ function loadUnitTypes() {
 const UNIT_TYPES = loadUnitTypes();
 
 
-const NATIONS = {
-  de: {
-    name: 'Deutsches Reich', short: 'Deutschland', side: 'axis',
-    color: '#7b828b', dark: '#2a2e33', text: '#f2f2f2',
-    costMul: 1.05,
-    mods: { tank: { soft: 1, hard: 1 }, heavy: { soft: 2, hard: 2, def: 2 }, hflak: { hard: 1 }, air: { soft: 1 } },
-    bonus: 'Panzerqualität: Tiger +2 Angriff und +2 Verteidigung; Panzer IV, Stukas und die Acht-Acht +1 Angriff, dafür alle Einheiten 5 % teurer.',
-    units: { inf: 'Grenadiere', recon: 'Sd.Kfz. 234 Puma', truck: 'Opel Blitz', halftrack: 'Sd.Kfz. 7', tank: 'Panzer IV', heavy: 'Tiger I', at: 'Pak 40', art: 'leFH 18', lflak: 'Flak 38 (2 cm)', hflak: 'Flak 36 (8,8 cm)', air: 'Ju 87 Stuka' },
-  },
-  it: {
-    name: 'Königreich Italien', short: 'Italien', side: 'axis',
-    color: '#3f6ea8', dark: '#1a2c44', text: '#f2f2f2',
-    costMul: 0.85,
-    mods: { tank: { def: -1 }, heavy: { def: -1, move: 1 }, art: { soft: 1 } },
-    bonus: 'Günstige Ausrüstung: 15 % billiger und Artillerie +1, P26/40 +1 Bewegung, aber Panzer −1 Verteidigung.',
-    units: { inf: 'Fanteria', recon: 'AB 41', truck: 'Fiat 626', halftrack: 'Breda 61', tank: 'M13/40', heavy: 'P26/40', at: 'Cannone 47/32', art: 'Obice 75/18', lflak: 'Breda 20/65', hflak: 'Cannone 90/53', air: 'Fiat G.55' },
-  },
-  jp: {
-    name: 'Kaiserreich Japan', short: 'Japan', side: 'axis',
-    color: '#d3b043', dark: '#4a3c12', text: '#1d1a10',
-    costMul: 1,
-    mods: { inf: { soft: 2 }, tank: { hard: -1, def: -1 }, heavy: { hard: -1, def: -1, move: 1 }, air: { move: 1 } },
-    bonus: 'Banzai: Infanterie +2 Angriff, Zero und Chi-He +1 Bewegung, aber Panzer schwächer.',
-    units: { inf: 'Infanterie (IJA)', recon: 'Typ 97 Te-Ke', truck: 'Isuzu Typ 94', halftrack: 'Typ 1 Ho-Ha', tank: 'Typ 97 Chi-Ha', heavy: 'Typ 1 Chi-He', at: 'Typ 1 47-mm-Pak', art: 'Typ 91 Haubitze', lflak: 'Typ 98 20-mm-Flak', hflak: 'Typ 88 75-mm-Flak', air: 'A6M Zero' },
-  },
-  us: {
-    name: 'Vereinigte Staaten', short: 'USA', side: 'allies',
-    color: '#5f6b2f', dark: '#23280f', text: '#f2f2f2',
-    costMul: 1, incomeMul: 1.25,
-    mods: { art: { soft: 1 }, air: { hard: 1 }, tank: { move: 1 }, heavy: { move: 1 }, lflak: { move: 5, moveType: 'track', towed: false } },
-    bonus: 'Arsenal der Demokratie: +25 % Einkommen, Artillerie und Jagdbomber +1, Sherman und Pershing +1 Bewegung, M16 fährt selbst.',
-    units: { inf: 'GI-Infanterie', recon: 'M8 Greyhound', truck: 'GMC CCKW', halftrack: 'M3 Halbkette', tank: 'M4 Sherman', heavy: 'M26 Pershing', at: '57-mm-Pak M1', art: 'M2A1 Haubitze', lflak: 'M16 Flakpanzer', hflak: '90-mm-Flak M1', air: 'P-47 Thunderbolt' },
-  },
-  uk: {
-    name: 'Vereinigtes Königreich', short: 'Großbritannien', side: 'allies',
-    color: '#9a7448', dark: '#3a2a16', text: '#f7f0e4',
-    costMul: 1,
-    mods: { inf: { def: 1 }, tank: { move: 1 }, art: { soft: 1, hard: 1 }, lflak: { air: 1 }, hflak: { air: 1 } },
-    bonus: 'Bulldogge: Infanterie +1 Verteidigung, Artillerie und Flak stärker, Cromwell +1 Bewegung.',
-    units: { inf: 'Infanterie', recon: 'Daimler Armoured Car', truck: 'Bedford QL', halftrack: 'M5 Halbkette', tank: 'Cromwell', heavy: 'Churchill', at: '6-Pfünder-Pak', art: '25-Pfünder', lflak: 'Bofors 40 mm', hflak: 'QF 3,7 Zoll', air: 'Hawker Typhoon' },
-  },
-  su: {
-    name: 'Sowjetunion', short: 'Sowjetunion', side: 'allies',
-    color: '#a33d2c', dark: '#3d130c', text: '#f7ece8',
-    costMul: 0.9,
-    mods: { inf: { costMul: 0.7 }, tank: { move: 1 } },
-    bonus: 'Masse: alles 10 % billiger, Infanterie 30 % billiger, T-34 +1 Bewegung.',
-    units: { inf: 'Schützen', recon: 'BA-64', truck: 'GAZ-AA', halftrack: 'Komsomolez', tank: 'T-34/76', heavy: 'IS-2', at: 'ZiS-3', art: 'M-30 Haubitze', lflak: '61-K (37 mm)', hflak: '52-K (85 mm)', air: 'Il-2 Sturmowik' },
-  },
-};
+// Nationen stehen in config/nationen.js (NATION_CONFIG) und werden hier geprüft.
+const NATION_ORDER = ['de', 'it', 'jp', 'us', 'uk', 'su'];
+const NATION_MOD_NUMBERS = ['soft', 'hard', 'air', 'def', 'move'];
 
-const AXIS = ['de', 'it', 'jp'];
-const ALLIES = ['us', 'uk', 'su'];
+function loadNations() {
+  const out = {};
+  if (typeof NATION_CONFIG === 'undefined') {
+    const err = (typeof window !== 'undefined' && window.CONFIG_LOAD_ERROR_NATIONS) || 'Datei fehlt oder enthält einen Syntaxfehler (z. B. fehlendes Komma oder Anführungszeichen). Die genaue Zeile steht in der Browser-Konsole (Mac: Cmd+Alt+J).';
+    CONFIG_ERRORS.push(`config/nationen.js konnte nicht geladen werden: ${err}`);
+    return out;
+  }
+  const color = v => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+  for (const key of NATION_ORDER) {
+    const n = NATION_CONFIG[key];
+    const where = `Nation „${key}“`;
+    if (!n || typeof n !== 'object') { CONFIG_ERRORS.push(`${where} fehlt.`); continue; }
+    for (const f of ['name', 'short', 'bonus']) if (typeof n[f] !== 'string' || !n[f]) CONFIG_ERRORS.push(`${where}: ${f} muss ein Text sein.`);
+    if (n.side !== 'axis' && n.side !== 'allies') CONFIG_ERRORS.push(`${where}: side muss 'axis' oder 'allies' sein.`);
+    for (const f of ['color', 'dark', 'text']) if (!color(n[f])) CONFIG_ERRORS.push(`${where}: ${f} muss eine Farbe wie '#7b828b' sein.`);
+    for (const f of ['costMul', 'incomeMul']) {
+      if (f in n && !(typeof n[f] === 'number' && n[f] > 0)) CONFIG_ERRORS.push(`${where}: ${f} muss eine Zahl > 0 sein.`);
+    }
+    const units = n.units || {};
+    for (const t of UNIT_ORDER) if (typeof units[t] !== 'string' || !units[t]) CONFIG_ERRORS.push(`${where}: units.${t} (Name) fehlt.`);
+    for (const t of Object.keys(units)) if (!UNIT_ORDER.includes(t)) CONFIG_ERRORS.push(`${where}: units enthält unbekannten Typ „${t}“.`);
+    const mods = n.mods || {};
+    for (const [t, m] of Object.entries(mods)) {
+      if (!UNIT_ORDER.includes(t)) { CONFIG_ERRORS.push(`${where}: mods enthält unbekannten Typ „${t}“.`); continue; }
+      for (const [f, v] of Object.entries(m || {})) {
+        if (NATION_MOD_NUMBERS.includes(f)) { if (typeof v !== 'number' || !isFinite(v)) CONFIG_ERRORS.push(`${where}: mods.${t}.${f} muss eine Zahl sein.`); }
+        else if (f === 'costMul') { if (!(typeof v === 'number' && v > 0)) CONFIG_ERRORS.push(`${where}: mods.${t}.costMul muss eine Zahl > 0 sein.`); }
+        else if (f === 'moveType') { if (!MOVE_TYPE_LABEL[v]) CONFIG_ERRORS.push(`${where}: mods.${t}.moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`); }
+        else if (f === 'towed') { if (typeof v !== 'boolean') CONFIG_ERRORS.push(`${where}: mods.${t}.towed muss true oder false sein.`); }
+        else CONFIG_ERRORS.push(`${where}: mods.${t} hat unbekanntes Attribut „${f}“ (Tippfehler?).`);
+      }
+    }
+    const known = new Set(['name', 'short', 'side', 'color', 'dark', 'text', 'costMul', 'incomeMul', 'bonus', 'units', 'mods']);
+    for (const f of Object.keys(n)) if (!known.has(f)) CONFIG_ERRORS.push(`${where}: unbekanntes Attribut „${f}“ (Tippfehler?).`);
+    out[key] = { ...n, mods: { ...mods }, units: { ...units } };
+  }
+  for (const key of Object.keys(NATION_CONFIG)) {
+    if (!NATION_ORDER.includes(key)) CONFIG_ERRORS.push(`Unbekannte Nation „${key}“ – erlaubt sind: ${NATION_ORDER.join(', ')}.`);
+  }
+  return out;
+}
+
+const NATIONS = loadNations();
+
+const AXIS = NATION_ORDER.filter(k => NATIONS[k] && NATIONS[k].side === 'axis');
+const ALLIES = NATION_ORDER.filter(k => NATIONS[k] && NATIONS[k].side === 'allies');
 
 const statsCache = new Map();
 
@@ -134,11 +131,11 @@ function unitStats(nationKey, typeKey) {
   const s = {
     ...base,
     type: typeKey,
-    soft: base.soft + (mod.soft || 0),
-    hard: base.hard + (mod.hard || 0),
-    air: base.air + (mod.air || 0),
-    def: base.def + (mod.def || 0),
-    move: base.move + (mod.move || 0),
+    soft: Math.max(0, base.soft + (mod.soft || 0)),
+    hard: Math.max(0, base.hard + (mod.hard || 0)),
+    air: Math.max(0, base.air + (mod.air || 0)),
+    def: Math.max(0, base.def + (mod.def || 0)),
+    move: Math.max(0, base.move + (mod.move || 0)),
     moveType: mod.moveType || base.moveType,
     towed: 'towed' in mod ? mod.towed : base.towed,
     cost: Math.round((base.cost * (nation.costMul || 1) * (mod.costMul || 1)) / 10) * 10,

@@ -117,7 +117,7 @@ class Controller {
           <li><b>Gezogene Geschütze und Transport:</b> Artillerie und Flak sind gezogen (Ausnahme: der US-Flakpanzer M16 fährt selbst) und bewegen sich nur mit einem LKW oder Halbkettenfahrzeug. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
           <li><b>Straßen:</b> Auf Straßen kostet jedes Feld nur 1 Bewegungspunkt. Abseits bremst das Gelände: Radfahrzeuge zahlen auf Ebene 2, in Wald und Hügeln 3; Ketten auf Ebene 1, in Wald und Hügeln 2.</li>
           <li><b>Luftabwehr:</b> ${noAirText}Bodeneinheiten außer Flak haben gegen Flugzeuge nur ${Math.round(GROUND_VS_AIR_MUL * 100)} % Angriffskraft.</li>
-          <li><b>Beweglichkeit:</b> ${UNIT_ORDER.filter(t => !UNIT_TYPES[t].towed).map(t => `${UNIT_TYPES[t].label} ${UNIT_TYPES[t].move}`).join(', ')} Punkte (einzelne Nationen +1). Flugzeuge fliegen unabhängig vom Gelände. Die Werte stehen in <code>config/einheiten.js</code>.</li>
+          <li><b>Beweglichkeit:</b> ${UNIT_ORDER.filter(t => !UNIT_TYPES[t].towed).map(t => `${UNIT_TYPES[t].label} ${UNIT_TYPES[t].move}`).join(', ')} Punkte (einzelne Nationen abweichend). Flugzeuge fliegen unabhängig vom Gelände. Die Werte stehen in <code>config/einheiten.js</code>.</li>
           <li><b>Kontrollzone:</b> Bodeneinheiten müssen anhalten, sobald sie neben eine feindliche Bodeneinheit ziehen. Flugzeuge ignorieren das.</li>
           <li><b>Städte:</b> Nur Infanterie kann Städte erobern (einfach daraufziehen). Jede Stadt bringt Nachschub, im eigenen HQ und in eigenen Städten können neue Einheiten ausgehoben werden. Beschädigte Einheiten, die ihren Zug in einer eigenen Stadt oder im eigenen HQ beginnen, werden kostenlos um ${HEAL_PER_TURN} Stärkepunkte repariert.</li>
           <li><b>Tasten:</b> E = Zug beenden, N = nächste Einheit, U = Ladung absetzen, Esc / Rechtsklick = Auswahl aufheben.</li>
@@ -622,8 +622,8 @@ function showConfigErrors() {
   $('overlay').classList.remove('hidden');
   $('overlay').classList.add('opaque');
   $('overlayContent').innerHTML = `
-    <h2>Fehler in der Einheiten-Konfiguration</h2>
-    <p>Bitte <code>config/einheiten.js</code> korrigieren und die Seite neu laden.</p>
+    <h2>Fehler in der Konfiguration</h2>
+    <p>Bitte <code>config/einheiten.js</code> bzw. <code>config/nationen.js</code> korrigieren und die Seite neu laden.</p>
     <ul>${CONFIG_ERRORS.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
 }
 
