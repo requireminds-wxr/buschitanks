@@ -258,6 +258,13 @@ function unitSprite(nationKey, type) {
   return sp && ready(sp.base) && ready(sp.barrel) ? sp : null;
 }
 
+// Fahrt: Ketten rütteln, Räder federn, Infanterie wippt im Schritt (Versatz in px).
+function driveBob(moveType, now, h) {
+  if (moveType === 'air') return 0;
+  return moveType === 'foot' ? -Math.abs(Math.sin(now / 80)) * h * 0.04
+    : Math.sin(now / (moveType === 'track' ? 28 : 55)) * h * 0.015;
+}
+
 // pose: dir (1 = nach rechts, −1 = nach links, Zwischenwerte beim Wenden),
 // elev (Rohrerhöhung in Rad), recoil (0–1), flash (0–1), bob (Versatz in px).
 function drawUnitSprite(ctx, sp, x, y, w, h, pose = {}) {
@@ -561,11 +568,13 @@ class View {
   }
 
   // Blickrichtung ändern, wenn dx deutlich nach links oder rechts zeigt.
+  // Liefert true, wenn dafür gewendet wird.
   face(u, dx) {
-    if (Math.abs(dx) < this.size * 0.2) return;
+    if (Math.abs(dx) < this.size * 0.2) return false;
     const dir = dx > 0 ? 1 : -1, cur = this.facingOf(u, performance.now());
-    if (cur === dir) return;
+    if (cur === dir) return false;
     this.facing.set(u.id, { dir, from: cur, start: performance.now() });
+    return true;
   }
 
   facingOf(u, now) {
@@ -576,17 +585,19 @@ class View {
   }
 
   // Zielen und Feuern: Rohr richten (Artillerie steil, Flak gegen Flugzeuge steil),
-  // dann Rückstoß und Mündungsfeuer. Liefert die Zeit bis zum Schuss.
+  // dann Rückstoß und Mündungsfeuer. Liefert die Zeit bis zum Schuss
+  // (0, wenn der Schütze im Nebel steht und die Animation niemand sieht).
   startFire(att, def) {
     const [ax] = this.center(att.q, att.r), [dx] = this.center(def.q, def.r);
-    const turn = Math.sign(dx - ax) !== Math.sign(this.facingOf(att, performance.now())) && Math.abs(dx - ax) >= this.size * 0.2;
-    this.face(att, dx - ax);
+    const turn = this.face(att, dx - ax);
     const vsAir = this.game.stats(def).isAir;
     const dist = hexDistance(att.q, att.r, def.q, def.r);
     const elev = { art: 0.2 + dist * 0.07, hflak: vsAir ? 0.75 : 0.05, lflak: vsAir ? 0.6 : 0.03 }[att.type] ?? (vsAir ? 0.3 : 0);
-    const aim = (turn ? 180 : 0) + (elev > 0.1 ? 260 : 0);
+    // Rohr heben nur abwarten, wenn sich auch sichtbar ein Rohr hebt.
+    const sp = unitSprite(this.game.players[att.owner].nation, att.type);
+    const aim = (turn ? 180 : 0) + (elev > 0.1 && sp?.barrel ? 260 : 0);
     this.fireAnims.set(att.id, { start: performance.now(), aim, elev });
-    return aim;
+    return !this.vis || this.vis.has(hexKey(att.q, att.r)) ? aim : 0;
   }
 
   firePose(u, now) {
@@ -614,8 +625,7 @@ class View {
     this.addEffect({ kind: 'boom', q: def.q, r: def.r, dur: 420 });
     this.addEffect({ kind: 'text', q: def.q, r: def.r, text: res.defKilled ? 'Vernichtet' : `−${res.dmg}`, color: '#ff6b5a', dur: 1100 });
     if (res.counter) {
-      this.startFire(def, att);
-      await sleep(260);
+      await sleep(this.startFire(def, att) + 260);
       this.addEffect({ kind: 'boom', q: att.q, r: att.r, dur: 380 });
       this.addEffect({ kind: 'text', q: att.q, r: att.r, text: res.attKilled ? 'Vernichtet' : `−${res.counter}`, color: '#ffb35a', dur: 1100 });
     }
@@ -766,11 +776,7 @@ class View {
     ctx.fillStyle = 'rgba(0,0,0,0.38)';
     roundRect(ctx, x - w / 2 + 2, cy - h / 2 + 3, w, h, h * 0.14); ctx.fill();
     const pose = { dir: this.facingOf(u, now), ...this.firePose(u, now) };
-    if (this.moveAnims.has(u.id) && !st.isAir) {
-      // Fahrt: Ketten rütteln, Räder federn, Infanterie wippt im Schritt.
-      pose.bob = st.moveType === 'foot' ? -Math.abs(Math.sin(now / 80)) * h * 0.04
-        : Math.sin(now / (st.moveType === 'track' ? 28 : 55)) * h * 0.015;
-    }
+    if (this.moveAnims.has(u.id) && !st.isAir) pose.bob = driveBob(st.moveType, now, h);
     drawCounter(ctx, g.players[u.owner].nation, u.type, x - w / 2, cy - h / 2, w, h, u.hp, pose);
     if (done) {
       ctx.fillStyle = 'rgba(20,20,20,0.45)';

@@ -11,11 +11,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { decodePNG, encodePNG } from './png.mjs';
+import { BARREL_LAYOUT } from './unit-prompts.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
-  return i < 0 ? def : process.argv[i + 1];
+  return i < 0 ? def : process.argv[i + 1] ?? def;
 }
 const model = arg('model', 'gpt-image-2.5-sunburst');
 const outDir = path.join(ROOT, arg('out', 'assets/units'));
@@ -163,9 +164,9 @@ fs.mkdirSync(outDir, { recursive: true });
 const manifest = {};
 for (const file of fs.readdirSync(rawDir).filter(f => f.endsWith('.png')).sort()) {
   const key = file.replace(/\.png$/, '');
-  // Rohr nur suchen, wenn der Prompt eins verlangt hat (LAYOUT.barrel in generate-units.mjs).
+  // Rohr nur suchen, wenn der Prompt eins verlangt hat (BARREL_LAYOUT).
   const txt = path.join(rawDir, `${key}.txt`);
-  const wantsBarrel = fs.existsSync(txt) && fs.readFileSync(txt, 'utf8').includes('barrel points exactly horizontally');
+  const wantsBarrel = fs.existsSync(txt) && fs.readFileSync(txt, 'utf8').includes(BARREL_LAYOUT);
   const raw = decodePNG(fs.readFileSync(path.join(rawDir, file)));
   cleanAlpha(raw);
   const bb = bbox(raw);
@@ -189,11 +190,12 @@ for (const file of fs.readdirSync(rawDir).filter(f => f.endsWith('.png')).sort()
   const norm = ([x, y]) => [+(x / im.width).toFixed(4), +(y / im.height).toFixed(4)];
   fs.writeFileSync(path.join(outDir, `${key}.png`), encodePNG(resize(im, W, H)));
   const entry = { w: W, h: H, muzzle: norm(front) };
+  const barrelFile = path.join(outDir, `${key}.barrel.png`);
   if (barrelIm) {
-    fs.writeFileSync(path.join(outDir, `${key}.barrel.png`), encodePNG(resize(barrelIm, W, H)));
+    fs.writeFileSync(barrelFile, encodePNG(resize(barrelIm, W, H)));
     entry.barrel = true;
     entry.pivot = norm(barrel.pivot);
-  }
+  } else fs.rmSync(barrelFile, { force: true }); // Rohr aus einem früheren Lauf
   manifest[key] = entry;
   console.log(key.padEnd(12), `${W}×${H}`, barrel ? `Rohr ab x=${entry.pivot[0]}` : 'ohne Rohr');
 }

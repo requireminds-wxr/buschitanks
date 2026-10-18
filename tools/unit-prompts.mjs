@@ -1,6 +1,10 @@
 // Motivbeschreibungen je Einheit (Schlüssel: <nation>.<typ>) für
 // tools/generate-units.mjs. Fehlt ein Eintrag, wird aus dem Einheitennamen in
 // config/nationen.js eine allgemeine Beschreibung gebaut.
+// Bildvorgabe für Einheiten mit Rohr. tools/process-units.mjs sucht nur in
+// Bildern, deren Prompt diesen Satz enthält, nach einem abtrennbaren Rohr.
+export const BARREL_LAYOUT = 'The main gun barrel points exactly horizontally to the right, is fully visible along its whole length and stands free: transparent space directly above and below the protruding part of the barrel.';
+
 export const UNIT_PROMPTS = {
   // --- Deutschland ---
   'de.inf': 'German Wehrmacht grenadiers of 1943 in field-grey M43 tunics and trousers with ankle boots and canvas gaiters, dark grey M35 steel helmets, Y-strap webbing with ammunition pouches and bread bags, Kar98k rifles, one with an MP 40 submachine gun and one carrying an MG 42 machine gun',

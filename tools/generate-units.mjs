@@ -10,13 +10,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
-import { UNIT_PROMPTS } from './unit-prompts.mjs';
+import { UNIT_PROMPTS, BARREL_LAYOUT } from './unit-prompts.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
-  return i < 0 ? def : process.argv[i + 1];
+  return i < 0 ? def : process.argv[i + 1] ?? def;
 }
 const model = arg('model', 'gpt-image-2.5-sunburst');
 const quality = arg('quality', 'high');
@@ -43,7 +43,7 @@ function loadConfig() {
 const LAYOUT = {
   vehicle: 'Exact orthographic side profile, vehicle facing right, wheels or tracks level at the bottom of the vehicle.',
   gun: 'Exact orthographic side profile, the gun deployed for firing and facing right, no crew, no towing vehicle.',
-  barrel: 'The main gun barrel points exactly horizontally to the right, is fully visible along its whole length and stands free: transparent space directly above and below the protruding part of the barrel.',
+  barrel: BARREL_LAYOUT,
   inf: 'Exact side view of a squad of three soldiers advancing to the right in a loose row, full bodies visible, slightly overlapping, carrying their typical rifles and one light machine gun.',
   air: 'Exact orthographic side profile of the aircraft in level flight, flying to the right, landing gear retracted (unless the aircraft has fixed landing gear), propeller shown as a faint semi-transparent blurred disc.',
 };

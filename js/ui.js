@@ -21,7 +21,12 @@ function unitIconCanvas(nationKey, type, w = 52, h = 40) {
   c.style.width = w + 'px'; c.style.height = h + 'px';
   const ctx = c.getContext('2d');
   ctx.scale(2, 2);
-  drawCounter(ctx, nationKey, type, 1, 1, w - 2, h - 2);
+  const draw = () => { ctx.clearRect(0, 0, w, h); drawCounter(ctx, nationKey, type, 1, 1, w - 2, h - 2); };
+  draw();
+  // Grafik noch nicht geladen: nachzeichnen, sobald sie da ist.
+  const sp = loadSprite(`${nationKey}.${type}`);
+  if (sp && !unitSprite(nationKey, type))
+    [sp.base, sp.barrel].filter(Boolean).forEach(i => i.addEventListener('load', () => { if (unitSprite(nationKey, type)) draw(); }));
   return c;
 }
 
