@@ -113,6 +113,7 @@ class Controller {
           <li><b>Ziel:</b> Erobere alle Städte – einschließlich beider Hauptquartiere. Wer sie alle hält, gewinnt sofort. Ein verlorenes HQ ist noch keine Niederlage, kann aber zurückerobert werden. Nach ${MAX_TURNS} Runden entscheiden Städte und Truppenstärke.</li>
           <li><b>Ablauf:</b> Einheit anklicken → blaues Feld wählen, um zu ziehen → rot markiertes Ziel anklicken, um anzugreifen. Angreifen ist auch ohne Bewegung möglich, danach ist die Einheit fertig.</li>
           <li><b>Schwere Fernkampfeinheiten</b> (Artillerie, schwere Flak) schießen auf ${rangeText('art')} Felder, aber nicht im Zug, in dem sie abgesetzt wurden. Artillerie wird nicht erwidert und erwidert selbst nicht. Sie braucht Aufklärung, denn sie sieht selbst nur ${UNIT_TYPES.art.vision} Feld weit.</li>
+          <li><b>Direktes und indirektes Feuer:</b> Direkt feuernde Einheiten brauchen freies Schussfeld – auf den Feldern zwischen Schütze und Ziel darf kein Gebirge liegen und keine sichtbare Bodeneinheit stehen, auch keine eigene. Indirekt feuernde Einheiten (${listText(UNIT_ORDER.filter(t => UNIT_TYPES[t].fire === 'indirect').map(t => UNIT_TYPES[t].label))}) schießen über alles hinweg. Gegen Flugzeuge und für Flugzeuge ist das Schussfeld immer frei. Die Werte stehen in <code>config/einheiten.js</code> (<code>fire</code>, <code>range</code>).</li>
           <li><b>Bewegung kostet Kraft:</b> Wer vor dem Angriff zieht, verliert ${Math.round(MOVE_ATTACK_PENALTY * 100)} % Angriffskraft je gezogenem Feld (3 Felder = −30 %). Die Prognose beim Zielen zeigt den Abzug an.</li>
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
           <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge. Sümpfe sind nur für Infanterie passierbar.</li>
@@ -548,7 +549,7 @@ class Controller {
           <dt>Verteidigung</dt><dd>${s.def} ${g.terrainDefense(u, u.q, u.r) ? `+${g.terrainDefense(u, u.q, u.r)} (${terr.name})` : ''}</dd>
           <dt>Bewegung</dt><dd>${s.towed ? 'gezogen' : `${s.move} (${MOVE_TYPE_LABEL[s.moveType]})`}</dd>
           ${s.transport ? `<dt>Ladung</dt><dd>${u.cargo ? `${esc(g.stats(u.cargo).name)} (${u.cargo.hp}/10)` : 'leer'}</dd>` : ''}
-          <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}</dd>
+          <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')} (${FIRE_TYPE_LABEL[s.fire]}es Feuer)</dd>
           <dt>Sichtweite</dt><dd>${s.vision}${s.spotter ? ' (sieht in Wälder)' : ''}</dd>
           <dt>Panzerung</dt><dd>${s.isAir ? 'Flugzeug' : s.armor >= 1 ? 'schwer' : s.armor > 0 ? 'leicht' : 'keine'}</dd>
         </dl>

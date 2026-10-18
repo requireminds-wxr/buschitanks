@@ -89,7 +89,7 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
   ctx.lineCap = 'round';
   const cx = x + w / 2, cy = y + h / 2;
   const oval = (rx, ry) => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); };
-  switch (type) {
+  switch (unitClass(type)) {
     case 'inf':
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.moveTo(x + w, y); ctx.lineTo(x, y + h); ctx.stroke();
       break;
@@ -154,7 +154,7 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
     for (let i = 0; i < n; i++) circle(tx + th / 2 + i * (tw - th) / (n - 1), ty + th / 2, th * 0.28);
     ctx.restore();
   };
-  switch (type) {
+  switch (unitClass(type)) {
     case 'inf':
       ctx.beginPath(); ctx.ellipse(50, 11, 10, 7, 0, Math.PI, 0); ctx.fill();
       ctx.fillRect(37, 10, 26, 3);

@@ -169,10 +169,38 @@ class Game {
     return path;
   }
 
-  inRange(u, fromQ, fromR, target) {
-    const range = this.stats(u).range;
-    const d = hexDistance(fromQ, fromR, target.q, target.r);
-    return d >= range[0] && d <= range[1];
+  // Reichweite und – bei direktem Feuer – freies Schussfeld.
+  // toQ/toR: Stellung des Ziels, falls abweichend (Gegenschlag auf hypothetische Angreiferstellung).
+  inRange(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
+    const s = this.stats(u);
+    const d = hexDistance(fromQ, fromR, toQ, toR);
+    if (d < s.range[0] || d > s.range[1]) return false;
+    return s.fire !== 'direct' || this.clearShot(u, fromQ, fromR, target, toQ, toR);
+  }
+
+  // Direktes Feuer: Zwischen Schütze und Ziel darf kein Gebirge liegen und keine
+  // Bodeneinheit stehen, die der Schütze sieht. Flugzeuge schießen und werden
+  // beschossen, ohne dass etwas im Weg ist. Liegt die Linie genau auf der Kante
+  // zweier Felder, genügt es, wenn eine der beiden Seiten frei ist.
+  clearShot(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
+    if (this.stats(u).isAir || this.stats(target).isAir) return true;
+    const n = hexDistance(fromQ, fromR, toQ, toR);
+    if (n <= 1) return true;
+    const blocked = (q, r) => {
+      const tile = this.tile(q, r);
+      if (tile && BLOCKS_LINE_OF_FIRE.includes(tile.terrain)) return true;
+      const e = this.units.find(x => x.q === q && x.r === r && x !== u && x !== target && !this.stats(x).isAir);
+      return !!e && (e.owner === u.owner || this.canSee(u.owner, e));
+    };
+    const lineFree = eps => {
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const [q, r] = hexRound(fromQ + (toQ - fromQ) * t + eps, fromR + (toR - fromR) * t + eps);
+        if (blocked(q, r)) return false;
+      }
+      return true;
+    };
+    return lineFree(1e-6) || lineFree(-1e-6);
   }
 
   // Angriffswert inklusive Abzügen (Bewegung, Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).
@@ -217,9 +245,10 @@ class Game {
     return a * (attHp / 10) * 1.2 / (1 + defense * 0.12);
   }
 
-  canCounter(def, att, dist) {
+  // attQ/attR: Stellung des Angreifers (für die KI auch hypothetisch).
+  canCounter(def, att, attQ, attR) {
     const s = this.stats(def);
-    return !s.noCounter && dist >= s.range[0] && dist <= s.range[1] && this.attackValue(def, att) > 0;
+    return !s.noCounter && this.inRange(def, def.q, def.r, att, attQ, attR) && this.attackValue(def, att) > 0;
   }
 
   // Kampfprognose für die Anzeige und die KI.
@@ -231,8 +260,7 @@ class Game {
     const min = roundDmg(base * 0.85), max = roundDmg(base * 1.15), avg = roundDmg(base);
     const defHpAfter = Math.max(0, def.hp - avg);
     let cmin = 0, cmax = 0, cavg = 0;
-    const dist = hexDistance(fq, fr, def.q, def.r);
-    if (defHpAfter > 0 && this.canCounter(def, att, dist)) {
+    if (defHpAfter > 0 && this.canCounter(def, att, fq, fr)) {
       const cb = this.baseDamage(def, att, defHpAfter, [fq, fr]);
       const rc = x => (cb > 0 ? Math.max(1, Math.round(x)) : 0);
       cmin = rc(cb * 0.85); cmax = rc(cb * 1.15); cavg = rc(cb);
@@ -299,11 +327,10 @@ class Game {
   attack(att, def) {
     if (!this.canAttackNow(att) || !this.inRange(att, att.q, att.r, def)) return null;
     const as = this.stats(att), ds = this.stats(def);
-    const dist = hexDistance(att.q, att.r, def.q, def.r);
     const dmg = this.rollDamage(att, def, att.hp);
     def.hp = Math.max(0, def.hp - dmg);
     let counter = 0;
-    if (def.hp > 0 && this.canCounter(def, att, dist)) {
+    if (def.hp > 0 && this.canCounter(def, att, att.q, att.r)) {
       counter = this.rollDamage(def, att, def.hp, [def.q, def.r]);
       att.hp = Math.max(0, att.hp - counter);
     }

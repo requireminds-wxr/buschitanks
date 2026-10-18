@@ -23,8 +23,17 @@ const TERRAIN = {
 };
 
 const MOVE_TYPE_LABEL = { foot: 'zu Fuß', wheel: 'Räder', track: 'Ketten/Halbketten', air: 'Luft' };
+const FIRE_TYPE_LABEL = { direct: 'direkt', indirect: 'indirekt' };
+// Gelände, das direktes Feuer blockiert.
+const BLOCKS_LINE_OF_FIRE = ['mountain'];
 
 // Einheitenwerte stehen in config/einheiten.js (UNIT_CONFIG) und werden hier geprüft.
+// Generische Einheitenklassen: bestimmen NATO-Symbol, Silhouette und KI-Verhalten.
+const UNIT_CLASSES = {
+  inf: 'Infanterie', recon: 'Aufklärung', truck: 'LKW', halftrack: 'Halbkettenfahrzeug',
+  tank: 'Mittlerer Panzer', heavy: 'Schwerer Panzer', at: 'Panzerabwehr', art: 'Artillerie',
+  lflak: 'Leichte Flak', hflak: 'Schwere Flak', air: 'Flugzeug',
+};
 const UNIT_ORDER = ['inf', 'recon', 'truck', 'halftrack', 'tank', 'heavy', 'at', 'art', 'lflak', 'hflak', 'air'];
 const UNIT_NUMBER_FIELDS = ['move', 'soft', 'hard', 'air', 'def', 'armor', 'vision', 'cost'];
 const UNIT_FLAGS = ['capture', 'spotter', 'aa', 'isAir', 'noCounter', 'noMoveAndFire', 'towed', 'transport', 'transportable'];
@@ -44,7 +53,10 @@ function loadUnitTypes() {
     const where = `Einheit „${key}“`;
     if (!c || typeof c !== 'object') { CONFIG_ERRORS.push(`${where} fehlt.`); continue; }
     if (typeof c.label !== 'string' || !c.label) CONFIG_ERRORS.push(`${where}: label muss ein Text sein.`);
+    if (!UNIT_CLASSES[c.class]) CONFIG_ERRORS.push(`${where}: class muss eine dieser Klassen sein: ${Object.keys(UNIT_CLASSES).join(', ')}.`);
     if (!MOVE_TYPE_LABEL[c.moveType]) CONFIG_ERRORS.push(`${where}: moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`);
+    if (!FIRE_TYPE_LABEL[c.fire]) CONFIG_ERRORS.push(`${where}: fire muss 'direct' oder 'indirect' sein.`);
+    if (typeof c.towed !== 'boolean') CONFIG_ERRORS.push(`${where}: towed muss true oder false sein.`);
     for (const f of UNIT_NUMBER_FIELDS) {
       if (typeof c[f] !== 'number' || !isFinite(c[f]) || c[f] < 0) CONFIG_ERRORS.push(`${where}: ${f} muss eine Zahl ≥ 0 sein.`);
     }
@@ -55,7 +67,7 @@ function loadUnitTypes() {
     for (const f of UNIT_FLAGS) {
       if (f in c && typeof c[f] !== 'boolean') CONFIG_ERRORS.push(`${where}: ${f} muss true oder false sein.`);
     }
-    const known = new Set(['label', 'moveType', 'range', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
+    const known = new Set(['class', 'label', 'moveType', 'fire', 'range', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
     for (const f of Object.keys(c)) if (!known.has(f)) CONFIG_ERRORS.push(`${where}: unbekanntes Attribut „${f}“ (Tippfehler?).`);
     out[key] = { ...c, range: Array.isArray(r) ? [...r] : [1, 1] };
   }
@@ -66,6 +78,9 @@ function loadUnitTypes() {
 }
 
 const UNIT_TYPES = loadUnitTypes();
+
+// Klasse eines Modells (Einheitentyps), z. B. 'tank' für einen Panzer IV.
+function unitClass(typeKey) { return (UNIT_TYPES[typeKey] && UNIT_TYPES[typeKey].class) || typeKey; }
 
 
 // Nationen stehen in config/nationen.js (NATION_CONFIG) und werden hier geprüft.

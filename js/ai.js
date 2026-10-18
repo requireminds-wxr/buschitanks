@@ -9,7 +9,7 @@ async function aiTakeTurn(game, view) {
   const me = game.current;
   await aiSieges(game, view);
   const units = game.units.filter(u => u.owner === me)
-    .sort((a, b) => AI_UNIT_ORDER[a.type] - AI_UNIT_ORDER[b.type]);
+    .sort((a, b) => AI_UNIT_ORDER[unitClass(a.type)] - AI_UNIT_ORDER[unitClass(b.type)]);
   for (const u of units) {
     if (game.gameOver) break;
     if (!game.units.includes(u)) continue;
@@ -230,7 +230,7 @@ async function aiActUnit(game, view, u) {
     let v = dist.has(k) ? dist.get(k) : 999;
     v -= game.terrainDefense(u, q, r) * 0.25;
     if (blocksCity(game, u, game.tile(q, r))) v += 8;
-    if (s.noMoveAndFire || s.type === 'at' || s.type === 'lflak') {
+    if (s.noMoveAndFire || s.class === 'at' || s.class === 'lflak') {
       // Unterstützungseinheiten halten Abstand zur Front.
       const adjacent = enemies.some(e => hexDistance(q, r, e.q, e.r) <= 1);
       if (adjacent) v += 6;
@@ -264,10 +264,10 @@ function aiBuy(game) {
   const spots = game.productionTiles(me).sort((a, b) => (b.terrain === 'hq') - (a.terrain === 'hq'));
 
   for (const tile of spots) {
-    const myInf = count(mine, u => u.type === 'inf');
-    const myArt = count(mine, u => u.type === 'art');
-    const myAa = count(mine, u => u.type === 'lflak' || u.type === 'hflak');
-    const myRecon = count(mine, u => u.type === 'recon');
+    const myInf = count(mine, u => unitClass(u.type) === 'inf');
+    const myArt = count(mine, u => unitClass(u.type) === 'art');
+    const myAa = count(mine, u => unitClass(u.type) === 'lflak' || unitClass(u.type) === 'hflak');
+    const myRecon = count(mine, u => unitClass(u.type) === 'recon');
     // Gezogene Geschütze brauchen Fahrzeuge (auch die schon verladenen zählen).
     const towed = count(mine, u => game.stats(u).towed) + count(mine, u => u.cargo && game.stats(u.cargo).towed);
     const transports = count(mine, u => game.stats(u).transport);
@@ -405,10 +405,7 @@ async function aiDeliver(game, view, t) {
         const d = cityDist.get(uk);
         if (d !== undefined && d <= 3 && minDist >= 2) score = 60 - d * 8;
       } else if (cs.towed) {
-        const targets = enemies.filter(e => {
-          const d = hexDistance(uq, ur, e.q, e.r);
-          return d >= cs.range[0] && d <= cs.range[1] && game.attackValue(cargo, e, 0) > 0;
-        }).length;
+        const targets = enemies.filter(e => game.inRange(cargo, uq, ur, e) && game.attackValue(cargo, e, 0) > 0).length;
         if (targets && minDist >= 2) score = 100 + targets * 10 + game.terrainDefense(cargo, uq, ur) * 3;
         else if (minDist >= 3) {
           // Noch kein Ziel in Reichweite: in Stellung gehen, sobald Gegner oder fremde Städte nahe sind.
