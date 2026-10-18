@@ -1,6 +1,6 @@
 // Spiellogik ohne DOM-Abhängigkeiten.
 
-const START_ARMY = ['inf', 'inf', 'inf', 'recon', 'tank', 'at', 'art'];
+const START_ARMY = ['inf', 'inf', 'inf', 'recon', 'tank', 'at', 'art', 'truck'];
 
 class Game {
   // opts: { nations: [axisKey, alliesKey], ai: [bool, bool], size, seed, rng? }
@@ -43,7 +43,7 @@ class Game {
 
   citiesOf(player) {
     let n = 0;
-    for (const t of this.map.tiles.values()) if (t.owner === player) n++;
+    for (const t of this.map.tiles.values()) if (t.owner === player && TERRAIN[t.terrain].capturable) n++;
     return n;
   }
 
@@ -114,7 +114,14 @@ class Game {
     return this.units.filter(e => e.owner !== player && this.canSee(player, e));
   }
 
-  canMove(u) { return !u.moved && !u.attacked; }
+  canMove(u) { return !u.moved && !u.attacked && this.stats(u).move > 0; }
+
+  // Bewegungskosten eines Feldes; Straßen machen jedes passierbare Feld gleich schnell.
+  moveCost(t, moveType) {
+    if (moveType === 'air') return 1;
+    const c = TERRAIN[t.terrain].cost[moveType];
+    return t.road && c < IMPASSABLE ? ROAD_COST : c;
+  }
 
   canAttackNow(u) {
     if (u.attacked) return false;
@@ -136,7 +143,7 @@ class Game {
       for (const [nq, nr] of hexNeighbors(cur.q, cur.r)) {
         const t = this.tile(nq, nr);
         if (!t) continue;
-        const tc = TERRAIN[t.terrain].cost[s.moveType];
+        const tc = this.moveCost(t, s.moveType);
         if (tc >= IMPASSABLE) continue;
         // Unentdeckte Gegner sind für die Planung unsichtbar (Hinterhalt beim Ausführen).
         const occ = this.unitAt(nq, nr);
@@ -168,15 +175,19 @@ class Game {
     return d >= range[0] && d <= range[1];
   }
 
-  // Angriffswert inklusive Abzügen (Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).
-  attackValue(att, def) {
+  // Angriffswert inklusive Abzügen (Bewegung, Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).
+  // steps: in diesem Zug bewegte Felder (Standard: tatsächlich gezogene Felder).
+  attackValue(att, def, steps = att.movedHexes || 0) {
     const a = this.stats(att), d = this.stats(def);
     let v;
     if (d.isAir) v = a.air * (a.isAir || a.aa ? 1 : GROUND_VS_AIR_MUL);
     else v = a.soft * (1 - d.armor) + a.hard * d.armor;
     if (this.isSurprised(att)) v *= AMBUSH_ATTACK_MUL;
-    return v;
+    return v * this.moveAttackMul(steps);
   }
+
+  // Bewegung kostet Angriffskraft: −10 % je Feld.
+  moveAttackMul(steps) { return Math.max(0, 1 - MOVE_ATTACK_PENALTY * steps); }
 
   // In einen Hinterhalt geratene Einheiten kämpfen bis zum Ende des gegnerischen Zuges geschwächt.
   isSurprised(u) { return u.surprisedUntil >= this.halfTurn; }
@@ -198,8 +209,8 @@ class Game {
   }
 
   // Durchschnittsschaden von att gegen def; defPos erlaubt hypothetische Stellungen.
-  baseDamage(att, def, attHp, defPos) {
-    const a = this.attackValue(att, def);
+  baseDamage(att, def, attHp, defPos, steps) {
+    const a = this.attackValue(att, def, steps);
     if (a <= 0) return 0;
     const [q, r] = defPos || [def.q, def.r];
     const defense = this.stats(def).def + this.terrainDefense(def, q, r);
@@ -212,9 +223,10 @@ class Game {
   }
 
   // Kampfprognose für die Anzeige und die KI.
-  forecast(att, def, fromPos) {
+  // steps: hypothetische Zugweite des Angreifers (für die KI), sonst die tatsächliche.
+  forecast(att, def, fromPos, steps) {
     const [fq, fr] = fromPos || [att.q, att.r];
-    const base = this.baseDamage(att, def, att.hp);
+    const base = this.baseDamage(att, def, att.hp, null, steps);
     const roundDmg = x => (base > 0 ? Math.max(1, Math.round(x)) : 0);
     const min = roundDmg(base * 0.85), max = roundDmg(base * 1.15), avg = roundDmg(base);
     const defHpAfter = Math.max(0, def.hp - avg);
@@ -259,6 +271,7 @@ class Game {
     if (stand > 0 || ambush) u.moved = true;
     if (ambush || stopped) u.surprisedUntil = this.halfTurn + 1;
     if (stand > 0) {
+      u.movedHexes = stand;
       [u.q, u.r] = parseKey(planned[stand]);
       this.version++;
     }
@@ -284,6 +297,7 @@ class Game {
   }
 
   attack(att, def) {
+    if (!this.canAttackNow(att) || !this.inRange(att, att.q, att.r, def)) return null;
     const as = this.stats(att), ds = this.stats(def);
     const dist = hexDistance(att.q, att.r, def.q, def.r);
     const dmg = this.rollDamage(att, def, att.hp);
@@ -309,7 +323,71 @@ class Game {
     return { dmg, counter, defKilled, attKilled };
   }
 
+  // ---------- Transport ----------
+
+  // Ein leerer Transporter lädt eine benachbarte eigene gezogene oder transportierbare Einheit
+  // (Infanterie), die in diesem Zug nicht angegriffen hat.
+  canLoad(t, g) {
+    if (!t || !g || t.owner !== g.owner || t.owner !== this.current) return false;
+    if (!this.stats(t).transport || t.cargo || t.attacked) return false;
+    const gs = this.stats(g);
+    if (!(gs.towed || gs.transportable) || g.attacked) return false;
+    return hexDistance(t.q, t.r, g.q, g.r) === 1;
+  }
+
+  loadTargets(t) {
+    return this.units.filter(g => this.canLoad(t, g));
+  }
+
+  // Die Ladung verschwindet von der Karte und fährt im Transporter mit.
+  load(t, g) {
+    if (!this.canLoad(t, g)) return false;
+    const i = this.units.indexOf(g);
+    this.units.splice(i, 1);
+    g.moved = true;
+    g.attacked = true;
+    g.movedHexes = 0;
+    t.cargo = g;
+    this.version++;
+    this.addLog(`${this.stats(t).name} nimmt ${this.stats(g).name} auf.`, t.owner);
+    return true;
+  }
+
+  // Freie Nachbarfelder, auf die die Ladung abgesetzt werden kann.
+  unloadTiles(t) {
+    if (!t.cargo || t.attacked || t.owner !== this.current) return [];
+    const mt = this.stats(t.cargo).moveType;
+    const out = [];
+    for (const [q, r] of hexNeighbors(t.q, t.r)) {
+      const tile = this.tile(q, r);
+      if (!tile || this.unitAt(q, r) || TERRAIN[tile.terrain].cost[mt] >= IMPASSABLE) continue;
+      out.push(hexKey(q, r));
+    }
+    return out;
+  }
+
+  // Absetzen beendet den Zug des Transporters; die Ladung handelt frühestens im nächsten Zug.
+  // Infanterie, die auf einer fremden Stadt abgesetzt wird, erobert sie sofort.
+  unload(t, key) {
+    if (!this.unloadTiles(t).includes(key)) return null;
+    const g = t.cargo;
+    [g.q, g.r] = parseKey(key);
+    g.moved = true;
+    g.attacked = true;
+    t.cargo = null;
+    t.moved = true;
+    t.attacked = true;
+    this.units.push(g);
+    this.version++;
+    this.addLog(`${this.stats(t).name} setzt ${this.stats(g).name} ab.`, t.owner);
+    return { unit: g, capture: this.tryCapture(g) };
+  }
+
   removeUnit(u) {
+    if (u.cargo) {
+      this.addLog(`Mit ${this.stats(u).name} geht auch die Ladung ${this.stats(u.cargo).name} verloren.`, u.owner);
+      u.cargo = null;
+    }
     const i = this.units.indexOf(u);
     if (i >= 0) this.units.splice(i, 1);
     this.version++;
@@ -329,7 +407,7 @@ class Game {
   }
 
   spawn(type, owner, q, r) {
-    const u = { id: this.nextId++, type, owner, q, r, hp: 10, moved: false, attacked: false };
+    const u = { id: this.nextId++, type, owner, q, r, hp: 10, moved: false, attacked: false, cargo: null };
     this.units.push(u);
     this.version++;
     return u;
@@ -337,6 +415,7 @@ class Game {
 
   endTurn() {
     if (this.gameOver) return;
+    for (const u of this.units) u.movedHexes = 0;
     this.current = 1 - this.current;
     this.halfTurn++;
     this.version++;
@@ -364,24 +443,29 @@ class Game {
     if (repaired) this.addLog(`${repaired} Einheit(en) in Städten repariert (+${HEAL_PER_TURN} Stärke).`, this.current);
   }
 
+  // Gesamtzahl der eroberbaren Felder (Städte inklusive beider Hauptquartiere).
+  totalCities() {
+    let n = 0;
+    for (const t of this.map.tiles.values()) if (TERRAIN[t.terrain].capturable) n++;
+    return n;
+  }
+
+  // Sieg: Wer alle Städte und beide Hauptquartiere hält, gewinnt.
   checkWinner() {
     if (this.gameOver) return;
+    const total = this.totalCities();
     for (let i = 0; i < 2; i++) {
-      if (this.map.tiles.get(this.map.hq[i]).owner !== i) {
-        return this.finish(1 - i, `Das Hauptquartier von ${this.nationOf(i).short} wurde erobert.`);
-      }
-    }
-    for (let i = 0; i < 2; i++) {
-      if (!this.units.some(u => u.owner === i)) {
-        return this.finish(1 - i, `Die Streitkräfte von ${this.nationOf(i).short} wurden vernichtet.`);
+      if (this.citiesOf(i) === total) {
+        return this.finish(i, `${this.nationOf(i).short} hält alle ${total} Städte.`);
       }
     }
   }
 
   decideByPoints() {
     this.turn = MAX_TURNS;
+    const worth = u => this.stats(u).cost * u.hp / 10 + (u.cargo ? worth(u.cargo) : 0);
     const score = i => this.citiesOf(i) * 1000 + this.units.filter(u => u.owner === i)
-      .reduce((s, u) => s + this.stats(u).cost * u.hp / 10, 0);
+      .reduce((s, u) => s + worth(u), 0);
     const s0 = score(0), s1 = score(1);
     const reason = `Rundenlimit erreicht – entschieden nach Städten und Truppenstärke.`;
     this.finish(s0 === s1 ? -1 : (s0 > s1 ? 0 : 1), reason);
@@ -424,11 +508,11 @@ class Game {
       const cur = open.shift();
       if (cur.c > dist.get(cur.k)) continue;
       const [q, r] = parseKey(cur.k);
-      const enterCost = Math.min(TERRAIN[this.tile(q, r).terrain].cost[moveType], cur.c === 0 ? 1 : IMPASSABLE);
+      const enterCost = Math.min(this.moveCost(this.tile(q, r), moveType), cur.c === 0 ? 1 : IMPASSABLE);
       if (enterCost >= IMPASSABLE) continue;
       for (const [nq, nr] of hexNeighbors(q, r)) {
         const t = this.tile(nq, nr);
-        if (!t || TERRAIN[t.terrain].cost[moveType] >= IMPASSABLE) continue;
+        if (!t || this.moveCost(t, moveType) >= IMPASSABLE) continue;
         const nk = hexKey(nq, nr);
         const nc = cur.c + enterCost;
         if (!dist.has(nk) || nc < dist.get(nk)) { dist.set(nk, nc); open.push({ k: nk, c: nc }); }

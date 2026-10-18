@@ -37,6 +37,15 @@
   </div>
   <div id="overlay" class="overlay hidden"><div id="overlayContent" class="dialog"></div></div>
 
+  <script>
+    // Syntaxfehler in der Konfiguration merken, damit das Spiel sie anzeigen kann.
+    window.addEventListener('error', e => {
+      if (e.filename && e.filename.includes('config/einheiten.js') && !window.CONFIG_LOAD_ERROR) {
+        window.CONFIG_LOAD_ERROR = `${e.message} (Zeile ${e.lineno})`;
+      }
+    });
+  </script>
+  <script src="config/einheiten.js"></script>
   <script src="js/data.js"></script>
   <script src="js/hex.js"></script>
   <script src="js/map.js"></script>

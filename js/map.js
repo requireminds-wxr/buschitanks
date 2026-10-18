@@ -1,7 +1,6 @@
 // Prozedurale, punktsymmetrische Kartenerzeugung.
 
 const MAP_SIZES = {
-  small:  { label: 'Klein (14×10)',  w: 14, h: 10, cities: 3 },
   medium: { label: 'Mittel (18×12)', w: 18, h: 12, cities: 4 },
   large:  { label: 'Groß (24×15)',   w: 24, h: 15, cities: 6 },
 };
@@ -114,6 +113,8 @@ function generateMap(sizeKey, seed) {
     }
   }
 
+  buildRoads(tiles, mirrorOf, hq0, hq1, [...cityTiles, ...cityTiles.map(mirrorOf)]);
+
   return { w, h, grid, tiles, hq: [hexKey(hq0.q, hq0.r), hexKey(hq1.q, hq1.r)], seed, sizeKey };
 }
 
@@ -131,4 +132,46 @@ function floodFill(tiles, start, moveType) {
     }
   }
   return seen;
+}
+
+// Straßen: verbinden beide Hauptquartiere und jede Stadt mit dem Netz, gespiegelt für Fairness.
+// Sie meiden Wasser, Sumpf und Gebirge und folgen bevorzugt der Ebene.
+const ROAD_BUILD_COST = { plain: 1, forest: 2.5, hills: 2.5, city: 1, hq: 1 };
+
+function buildRoads(tiles, mirrorOf, hq0, hq1, cities) {
+  const setRoad = t => { t.road = true; mirrorOf(t).road = true; };
+  const route = (from, isGoal) => {
+    const start = hexKey(from.q, from.r);
+    const dist = new Map([[start, 0]]);
+    const prev = new Map();
+    const open = [{ k: start, c: 0 }];
+    while (open.length) {
+      open.sort((a, b) => a.c - b.c);
+      const cur = open.shift();
+      if (cur.c > dist.get(cur.k)) continue;
+      const t = tiles.get(cur.k);
+      if (cur.k !== start && isGoal(t)) {
+        const path = [];
+        for (let k = cur.k; k; k = prev.get(k)) path.push(tiles.get(k));
+        return path;
+      }
+      for (const [q, r] of hexNeighbors(t.q, t.r)) {
+        const nk = hexKey(q, r);
+        const n = tiles.get(nk);
+        if (!n || !(n.terrain in ROAD_BUILD_COST)) continue;
+        // Vorhandene Straßen sind billig, damit sich ein zusammenhängendes Netz bildet.
+        const nc = cur.c + (n.road ? 0.3 : ROAD_BUILD_COST[n.terrain]);
+        if (!dist.has(nk) || nc < dist.get(nk)) { dist.set(nk, nc); prev.set(nk, cur.k); open.push({ k: nk, c: nc }); }
+      }
+    }
+    return null;
+  };
+  const main = route(hq0, t => t === hq1);
+  if (main) main.forEach(setRoad);
+  else setRoad(hq0);
+  for (const c of cities) {
+    if (c.road) continue;
+    const path = route(c, t => t.road);
+    if (path) path.forEach(setRoad);
+  }
 }

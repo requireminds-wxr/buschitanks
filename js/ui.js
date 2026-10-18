@@ -6,6 +6,15 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+function rangeText(type) {
+  const [a, b] = UNIT_TYPES[type].range;
+  return a === b ? `${a}` : `${a}–${b}`;
+}
+
+function listText(items) {
+  return items.length > 1 ? `${items.slice(0, -1).join(', ')} und ${items[items.length - 1]}` : items.join('');
+}
+
 function unitIconCanvas(nationKey, type, w = 52, h = 40) {
   const c = document.createElement('canvas');
   c.width = w * 2; c.height = h * 2;
@@ -48,6 +57,7 @@ class Controller {
       if (e.key === 'e' || e.key === 'E') this.endTurn();
       else if (e.key === 'n' || e.key === 'N') this.selectNextUnit();
       else if (e.key === 'Escape') this.deselect();
+      else if (e.key === 'u' || e.key === 'U') this.toggleUnload();
     });
   }
 
@@ -58,6 +68,8 @@ class Controller {
   // ---------- Spielstart ----------
 
   showStartScreen(cancellable) {
+    const noAir = listText(UNIT_ORDER.filter(t => !UNIT_TYPES[t].air).map(t => UNIT_TYPES[t].label));
+    const noAirText = noAir ? `${noAir} können keine Flugzeuge angreifen. ` : '';
     const st = this.setup;
     const nationCards = (list, side) => list.map(k => `
       <button class="nation-card ${st.nations[side] === k ? 'sel' : ''}" data-side="${side}" data-nation="${k}">
@@ -93,19 +105,22 @@ class Controller {
       <details>
         <summary>Spielregeln</summary>
         <ul>
-          <li><b>Ziel:</b> Erobere das feindliche Hauptquartier oder vernichte alle feindlichen Einheiten. Nach ${MAX_TURNS} Runden entscheiden Städte und Truppenstärke.</li>
+          <li><b>Ziel:</b> Erobere alle Städte – einschließlich beider Hauptquartiere. Wer sie alle hält, gewinnt sofort. Ein verlorenes HQ ist noch keine Niederlage, kann aber zurückerobert werden. Nach ${MAX_TURNS} Runden entscheiden Städte und Truppenstärke.</li>
           <li><b>Ablauf:</b> Einheit anklicken → blaues Feld wählen, um zu ziehen → rot markiertes Ziel anklicken, um anzugreifen. Angreifen ist auch ohne Bewegung möglich, danach ist die Einheit fertig.</li>
-          <li><b>Artillerie</b> schießt auf 2–3 Felder Entfernung, aber nicht im selben Zug, in dem sie sich bewegt hat. Sie wird nicht erwidert und erwidert selbst nicht.</li>
+          <li><b>Schwere Fernkampfeinheiten</b> (Artillerie, schwere Flak) schießen auf ${rangeText('art')} Felder, aber nicht im Zug, in dem sie abgesetzt wurden. Artillerie wird nicht erwidert und erwidert selbst nicht. Sie braucht Aufklärung, denn sie sieht selbst nur ${UNIT_TYPES.art.vision} Feld weit.</li>
+          <li><b>Bewegung kostet Kraft:</b> Wer vor dem Angriff zieht, verliert ${Math.round(MOVE_ATTACK_PENALTY * 100)} % Angriffskraft je gezogenem Feld (3 Felder = −30 %). Die Prognose beim Zielen zeigt den Abzug an.</li>
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
-          <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge, Radfahrzeuge nicht in Sümpfe.</li>
+          <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge. Sümpfe sind nur für Infanterie passierbar.</li>
           <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
           <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch, ist aber überrascht: −60 % Angriffskraft (auch beim Gegenschlag) bis zum Ende des gegnerischen Zuges.</li>
-          <li><b>Flak:</b> Leichte Flak (2–4 cm) wirkt auf 1–2 Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf 2–3 Felder, stark gegen Flugzeuge und Panzer, ist aber kaum beweglich (2 Felder) und darf nicht im selben Zug ziehen und feuern. Leichte Flak ist motorisiert und schnell (7 Felder).</li>
-          <li><b>Luftabwehr:</b> Artillerie und Panzerabwehr können keine Flugzeuge angreifen. Andere Bodeneinheiten außer Flak haben gegen Flugzeuge nur 80 % Angriffskraft.</li>
-          <li><b>Beweglichkeit:</b> Aufklärer 8, Panzer 6, schwere Panzer 3, Infanterie 3, Flugzeuge 8 Felder (unabhängig vom Gelände).</li>
+          <li><b>Flak:</b> Leichte Flak (2–4 cm) wirkt auf ${rangeText('lflak')} Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf ${rangeText('hflak')} Felder, stark gegen Flugzeuge und Panzer.</li>
+          <li><b>Gezogene Geschütze und Transport:</b> Artillerie und Flak sind gezogen (Ausnahme: der US-Flakpanzer M16 fährt selbst) und bewegen sich nur mit einem LKW oder Halbkettenfahrzeug. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
+          <li><b>Straßen:</b> Auf Straßen kostet jedes Feld nur 1 Bewegungspunkt. Abseits bremst das Gelände: Radfahrzeuge zahlen auf Ebene 2, in Wald und Hügeln 3; Ketten auf Ebene 1, in Wald und Hügeln 2.</li>
+          <li><b>Luftabwehr:</b> ${noAirText}Bodeneinheiten außer Flak haben gegen Flugzeuge nur ${Math.round(GROUND_VS_AIR_MUL * 100)} % Angriffskraft.</li>
+          <li><b>Beweglichkeit:</b> ${UNIT_ORDER.filter(t => !UNIT_TYPES[t].towed).map(t => `${UNIT_TYPES[t].label} ${UNIT_TYPES[t].move}`).join(', ')} Punkte (einzelne Nationen +1). Flugzeuge fliegen unabhängig vom Gelände. Die Werte stehen in <code>config/einheiten.js</code>.</li>
           <li><b>Kontrollzone:</b> Bodeneinheiten müssen anhalten, sobald sie neben eine feindliche Bodeneinheit ziehen. Flugzeuge ignorieren das.</li>
           <li><b>Städte:</b> Nur Infanterie kann Städte erobern (einfach daraufziehen). Jede Stadt bringt Nachschub, im eigenen HQ und in eigenen Städten können neue Einheiten ausgehoben werden. Beschädigte Einheiten, die ihren Zug in einer eigenen Stadt oder im eigenen HQ beginnen, werden kostenlos um ${HEAL_PER_TURN} Stärkepunkte repariert.</li>
-          <li><b>Tasten:</b> E = Zug beenden, N = nächste Einheit, Esc / Rechtsklick = Auswahl aufheben.</li>
+          <li><b>Tasten:</b> E = Zug beenden, N = nächste Einheit, U = Ladung absetzen, Esc / Rechtsklick = Auswahl aufheben.</li>
         </ul>
       </details>`);
 
@@ -252,6 +267,15 @@ class Controller {
         await this.doAttack(sel, unit);
         return;
       }
+      // Aufladen: Transporter und Ladung in beliebiger Reihenfolge anklicken.
+      if (unit && unit.owner === g.current && unit !== sel) {
+        if (g.canLoad(sel, unit)) { await this.doLoad(sel, unit); return; }
+        if (g.canLoad(unit, sel)) { await this.doLoad(unit, sel); return; }
+      }
+      if (!unit && this.view.overlay.unloads.includes(hexKey(t.q, t.r))) {
+        await this.doUnload(sel, hexKey(t.q, t.r));
+        return;
+      }
       const reach = g.reachable(sel);
       const info = reach.get(hexKey(t.q, t.r));
       if (!unit && info && info.stop && g.canMove(sel)) {
@@ -282,9 +306,44 @@ class Controller {
     }
     this.busy = false;
     if (g.gameOver) { this.refresh(); this.showGameOver(); return; }
-    if (g.attackTargets(u).length) this.select(u);
+    if (g.attackTargets(u).length || g.loadTargets(u).length || g.unloadTiles(u).length) this.select(u);
     else this.deselect();
     this.refresh();
+  }
+
+  async doLoad(t, cargo) {
+    const g = this.game;
+    this.busy = true;
+    const [cq, cr] = [cargo.q, cargo.r];
+    g.load(t, cargo);
+    await this.view.flashText(cq, cr, 'Aufgesessen', '#7fe08a');
+    this.busy = false;
+    this.unloadMode = false;
+    this.select(t);
+    this.refresh();
+  }
+
+  async doUnload(t, key) {
+    const g = this.game;
+    this.busy = true;
+    const res = g.unload(t, key);
+    if (res) {
+      await this.view.flashText(res.unit.q, res.unit.r, 'Abgesetzt', '#ffd650');
+      if (res.capture) await this.view.flashText(res.unit.q, res.unit.r, 'Erobert!', '#ffe08a');
+    }
+    this.busy = false;
+    this.unloadMode = false;
+    this.deselect();
+    this.refresh();
+    if (g.gameOver) this.showGameOver();
+  }
+
+  // Abladen ohne vorherige Bewegung: Taste U oder Knopf in der Seitenleiste.
+  toggleUnload() {
+    const u = this.selected;
+    if (!this.humanTurn || !u || !u.cargo) return;
+    this.unloadMode = !this.unloadMode;
+    this.select(u);
   }
 
   async doAttack(att, def) {
@@ -295,7 +354,7 @@ class Controller {
     this.hideTooltip();
     await this.view.showAttack(att, def);
     const res = g.attack(att, def);
-    await this.view.showAttackResult(att, def, res);
+    if (res) await this.view.showAttackResult(att, def, res);
     this.busy = false;
     this.deselect();
     this.refresh();
@@ -304,13 +363,17 @@ class Controller {
 
   select(u) {
     const g = this.game;
+    if (this.selected !== u || !u.cargo) this.unloadMode = false;
     this.selected = u;
     this.buyTile = null;
     const ov = this.view.overlay;
     ov.selected = u;
     ov.buyTile = null;
-    ov.reach = g.canMove(u) ? g.reachable(u) : null;
+    const unloading = u.cargo && (this.unloadMode || !g.canMove(u));
+    ov.reach = g.canMove(u) && !unloading ? g.reachable(u) : null;
     ov.targets = g.attackTargets(u);
+    ov.loads = g.stats(u).transport ? g.loadTargets(u) : g.units.filter(t => g.canLoad(t, u));
+    ov.unloads = unloading ? g.unloadTiles(u) : [];
     ov.path = null;
     $('buyPanel').classList.add('hidden');
     this.renderInfo(u);
@@ -320,7 +383,8 @@ class Controller {
     this.selected = null;
     this.buyTile = null;
     const ov = this.view.overlay;
-    ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null; ov.buyTile = null;
+    ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null; ov.buyTile = null; ov.loads = []; ov.unloads = [];
+    this.unloadMode = false;
     $('buyPanel').classList.add('hidden');
     this.renderInfo(null);
   }
@@ -359,6 +423,7 @@ class Controller {
           Schaden: <span class="dmg">${range(f.min, f.max)}</span> (Ziel hat ${unit.hp})<br>
           Gegenschlag: <span class="ctr">${f.cmax ? range(f.cmin, f.cmax) : 'keiner'}</span>
           ${f.kill ? '<br><b>Sicher vernichtet</b>' : f.mayKill ? '<br>Vernichtung möglich' : ''}
+          ${sel.movedHexes ? `<br><i>Bewegt (${sel.movedHexes} Felder): −${Math.round((1 - g.moveAttackMul(sel.movedHexes)) * 100)} % Angriff</i>` : ''}
           ${g.isSurprised(sel) ? '<br><i>Überrascht: −60 % Angriff</i>' : ''}
           ${g.stats(unit).isAir && !g.stats(sel).aa && !g.stats(sel).isAir ? '<br><i>Ohne Flak: 80 % gegen Flugzeuge</i>' : ''}
           ${g.isSurprised(unit) && f.cmax ? '<br><i>Ziel ist überrascht (−60 %)</i>' : ''}`;
@@ -376,7 +441,7 @@ class Controller {
         this.showTooltip('<b>Unerkundet</b>', e);
         return;
       }
-      html = `<b>${terr.name}</b>`;
+      html = `<b>${terr.name}</b>${t.road ? ' mit Straße' : ''}`;
       if (viewer >= 0 && g.fog && !g.visibleTiles(viewer).has(k)) html += ' · <i>nicht aufgeklärt</i>';
       if (terr.def) html += ` · Deckung +${terr.def}`;
       if (terr.capturable) {
@@ -421,7 +486,8 @@ class Controller {
     $('turnInfo').innerHTML = `
       <span class="chip">Runde <b>${g.turn}</b>/${MAX_TURNS}</span>
       <span class="chip"><img src="${this.flags[p.nation]}" alt=""><b>${esc(n.short)}</b>${p.ai ? ' (KI)' : ''}</span>
-      <span class="chip">Nachschub <b>${p.funds}</b> <span style="color:var(--muted)">+${g.incomeOf(g.current)}</span></span>`;
+      <span class="chip">Nachschub <b>${p.funds}</b> <span style="color:var(--muted)">+${g.incomeOf(g.current)}</span></span>
+      <span class="chip" title="Städte inklusive Hauptquartiere – wer alle hält, gewinnt">Städte <b>${g.citiesOf(g.current)}</b>/${g.totalCities()}</span>`;
     const human = this.humanTurn;
     $('endTurnBtn').disabled = !human;
     $('nextUnitBtn').disabled = !human;
@@ -458,6 +524,7 @@ class Controller {
       else if (g.attackTargets(u).length) status = '<span class="status ready">Kann angreifen</span>';
       else status = '<span class="status">Befehle ausgeführt</span>';
     }
+    if (u.movedHexes && u.owner === g.current) status += ` <span class="status warn">${u.movedHexes} Felder bewegt: −${Math.round((1 - g.moveAttackMul(u.movedHexes)) * 100)} % Angriff</span>`;
     if (g.isSurprised(u)) status += ' <span class="status warn">Überrascht: −60 % Angriff</span>';
     const tileNow = g.tileOf(u);
     const repairHint = u.hp < 10 && tileNow.owner === u.owner && terr.capturable
@@ -474,7 +541,8 @@ class Controller {
           <dt>Stärke</dt><dd>${u.hp} / 10</dd>
           <dt>Angriff weich / hart / Luft</dt><dd>${s.soft} / ${s.hard} / ${s.air ? s.air : '–'}${airNote}</dd>
           <dt>Verteidigung</dt><dd>${s.def} ${g.terrainDefense(u, u.q, u.r) ? `+${g.terrainDefense(u, u.q, u.r)} (${terr.name})` : ''}</dd>
-          <dt>Bewegung</dt><dd>${s.move} (${MOVE_TYPE_LABEL[s.moveType]})</dd>
+          <dt>Bewegung</dt><dd>${s.towed ? 'gezogen' : `${s.move} (${MOVE_TYPE_LABEL[s.moveType]})`}</dd>
+          ${s.transport ? `<dt>Ladung</dt><dd>${u.cargo ? `${esc(g.stats(u.cargo).name)} (${u.cargo.hp}/10)` : 'leer'}</dd>` : ''}
           <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}</dd>
           <dt>Sichtweite</dt><dd>${s.vision}${s.spotter ? ' (sieht in Wälder)' : ''}</dd>
           <dt>Panzerung</dt><dd>${s.isAir ? 'Flugzeug' : s.armor >= 1 ? 'schwer' : s.armor > 0 ? 'leicht' : 'keine'}</dd>
@@ -483,9 +551,17 @@ class Controller {
         ${s.noMoveAndFire ? '<p class="hint">Kann nicht im selben Zug ziehen und feuern.</p>' : ''}
         ${s.capture ? '<p class="hint">Kann Städte und Hauptquartiere erobern.</p>' : ''}
         ${!s.air ? '<p class="hint">Kann keine Flugzeuge angreifen.</p>' : ''}
+        ${s.towed ? '<p class="hint">Gezogen: bewegt sich nur mit LKW oder Halbkette. Transporter daneben stellen, dann Transporter und Geschütz nacheinander anklicken.</p>' : ''}
+        ${s.transportable ? '<p class="hint">Kann mit LKW oder Halbkette transportiert werden.</p>' : ''}
+        ${s.transport ? `<p class="hint">${u.cargo
+          ? 'Ladung absetzen: nach dem Fahren gelbes Nachbarfeld anklicken, oder vorher <kbd>U</kbd> drücken. Wird das Fahrzeug vernichtet, ist auch die Ladung verloren.'
+          : 'Lädt ein gezogenes Geschütz oder Infanterie: daneben fahren und die grün markierte Einheit anklicken.'}</p>` : ''}
+        ${u.cargo && u.owner === g.current && g.canMove(u) && g.unloadTiles(u).length ? `<button class="btn" id="unloadBtn">${this.unloadMode ? 'Abladen abbrechen' : 'Hier abladen (U)'}</button>` : ''}
         ${repairHint}
       </div>`;
     $('unitIcon').appendChild(unitIconCanvas(g.players[u.owner].nation, u.type));
+    const ub = $('unloadBtn');
+    if (ub) ub.addEventListener('click', () => this.toggleUnload());
   }
 
   openBuy(tile) {
@@ -499,7 +575,7 @@ class Controller {
     }
     this.selected = null;
     const ov = this.view.overlay;
-    ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null;
+    ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null; ov.loads = []; ov.unloads = [];
     this.buyTile = tile;
     ov.buyTile = tile;
     const p = g.players[g.current];
@@ -513,7 +589,7 @@ class Controller {
       b.className = 'buy-item';
       b.disabled = s.cost > p.funds;
       b.innerHTML = `<span class="ic"></span>
-        <span><div class="n">${esc(s.name)}</div><div class="t">${esc(s.label)} · A ${s.soft}/${s.hard}/${s.air} · V ${s.def} · B ${s.move}</div></span>
+        <span><div class="n">${esc(s.name)}</div><div class="t">${esc(s.label)} · A ${s.soft}/${s.hard}/${s.air} · V ${s.def} · B ${s.towed ? 'gezogen' : s.move}${s.transport ? ' · Transport' : ''}</div></span>
         <span class="c">${s.cost}</span>`;
       b.querySelector('.ic').appendChild(unitIconCanvas(p.nation, type));
       b.addEventListener('click', () => {
@@ -542,4 +618,16 @@ class Controller {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => { window.controller = new Controller(); });
+function showConfigErrors() {
+  $('overlay').classList.remove('hidden');
+  $('overlay').classList.add('opaque');
+  $('overlayContent').innerHTML = `
+    <h2>Fehler in der Einheiten-Konfiguration</h2>
+    <p>Bitte <code>config/einheiten.js</code> korrigieren und die Seite neu laden.</p>
+    <ul>${CONFIG_ERRORS.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (CONFIG_ERRORS.length) { showConfigErrors(); return; }
+  window.controller = new Controller();
+});

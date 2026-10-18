@@ -115,6 +115,16 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
       ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.36, h * 0.7, 0, Math.PI, 0); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.18, h * 0.36, 0, Math.PI, 0); ctx.fill();
       break;
+    case 'truck':
+      // Versorgung/Transport: Querbalken unten, motorisiert (Räder).
+      ctx.beginPath(); ctx.moveTo(x, y + h * 0.62); ctx.lineTo(x + w, y + h * 0.62); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + w * 0.3, y + h * 0.82, h * 0.1, 0, Math.PI * 2); ctx.arc(x + w * 0.7, y + h * 0.82, h * 0.1, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'halftrack':
+      ctx.beginPath(); ctx.moveTo(x, y + h * 0.62); ctx.lineTo(x + w, y + h * 0.62); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + w * 0.22, y + h * 0.82, h * 0.1, 0, Math.PI * 2); ctx.fill();
+      roundRect(ctx, x + w * 0.42, y + h * 0.72, w * 0.42, h * 0.2, h * 0.1); ctx.stroke();
+      break;
     case 'air':
       ctx.beginPath();
       ctx.ellipse(cx - w * 0.15, cy, w * 0.15, h * 0.2, 0, 0, Math.PI * 2);
@@ -198,6 +208,19 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
       ctx.fillRect(4, 48, 92, 5);
       line(14, 53, 7, 58, 4); line(86, 53, 93, 58, 4);
       break;
+    case 'truck':
+      poly([[6, 42], [6, 18], [62, 18], [62, 42]]);
+      poly([[64, 42], [64, 22], [82, 22], [94, 32], [94, 42]]);
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = '#000'; ctx.fillRect(70, 25, 10, 7); ctx.restore();
+      [20, 46, 82].forEach(cx => circle(cx, 46, 8));
+      break;
+    case 'halftrack':
+      poly([[30, 40], [30, 22], [80, 22], [80, 40]]);
+      poly([[80, 40], [80, 26], [92, 30], [96, 40]]);
+      poly([[44, 22], [48, 14], [70, 14], [72, 22]]);
+      track(6, 38, 56, 16);
+      circle(84, 47, 8);
+      break;
     case 'air':
       ctx.beginPath(); ctx.ellipse(52, 30, 40, 6.5, 0, 0, Math.PI * 2); ctx.fill();
       poly([[44, 27], [52, 2], [62, 2], [61, 27]]);
@@ -251,7 +274,7 @@ class View {
     this.game = null;
     this.moveAnims = new Map();
     this.effects = [];
-    this.overlay = { reach: null, targets: [], path: null, selected: null, hover: null, buyTile: null };
+    this.overlay = { reach: null, targets: [], path: null, selected: null, hover: null, buyTile: null, loads: [], unloads: [] };
     this.terrainCache = null;
     this.viewer = -1; // Perspektive für den Nebel des Krieges; -1 = alles sichtbar
     window.addEventListener('resize', () => this.resize());
@@ -299,8 +322,38 @@ class View {
     c.width = this.canvas.width; c.height = this.canvas.height;
     const ctx = c.getContext('2d');
     ctx.scale(this.dpr, this.dpr);
-    for (const t of this.game.map.tiles.values()) this.drawTerrain(ctx, t);
+    // Städte nach den Straßen zeichnen, damit die Gebäude obenauf liegen.
+    const tiles = [...this.game.map.tiles.values()];
+    const isTown = t => TERRAIN[t.terrain].capturable;
+    for (const t of tiles) if (!isTown(t)) this.drawTerrain(ctx, t);
+    this.drawRoads(ctx);
+    for (const t of tiles) if (isTown(t)) this.drawTerrain(ctx, t);
     this.terrainCache = c;
+  }
+
+  // Straßen als Linien zwischen benachbarten Straßenfeldern (in Städten bis zur Mitte).
+  drawRoads(ctx) {
+    const s = this.size, tiles = this.game.map.tiles;
+    const segs = [];
+    for (const t of tiles.values()) {
+      if (!t.road) continue;
+      for (const [q, r] of hexNeighbors(t.q, t.r)) {
+        const n = tiles.get(hexKey(q, r));
+        if (n && n.road && hexKey(t.q, t.r) < hexKey(q, r)) segs.push([this.center(t.q, t.r), this.center(q, r)]);
+      }
+    }
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const stroke = (style, width, dash) => {
+      ctx.strokeStyle = style; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      for (const [[x1, y1], [x2, y2]] of segs) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+      ctx.stroke();
+    };
+    stroke('rgba(60,45,25,0.55)', s * 0.26);
+    stroke('#c9b07a', s * 0.17);
+    stroke('rgba(120,95,55,0.5)', Math.max(1, s * 0.03), [s * 0.12, s * 0.12]);
+    ctx.restore();
   }
 
   drawTerrain(ctx, t) {
@@ -559,6 +612,19 @@ class View {
       this.drawUnit(ctx, u, x, y, now);
     }
 
+    // Auf- und Abladen
+    for (const u of ov.loads) {
+      const [x, y] = this.center(u.q, u.r);
+      hexPath(ctx, x, y, s - 2);
+      ctx.strokeStyle = '#7fe08a'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    for (const k of ov.unloads) {
+      const [x, y] = this.center(...parseKey(k));
+      hexPath(ctx, x, y, s - 2);
+      ctx.fillStyle = 'rgba(255,214,80,0.3)'; ctx.fill();
+      ctx.strokeStyle = '#ffd650'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+
     // Angriffsziele
     for (const e of ov.targets) {
       const [x, y] = this.center(e.q, e.r);
@@ -589,6 +655,13 @@ class View {
     if (done) {
       ctx.fillStyle = 'rgba(20,20,20,0.45)';
       roundRect(ctx, x - w / 2, cy - h / 2, w, h, h * 0.14); ctx.fill();
+    }
+    if (u.cargo) {
+      // Ladung: kleines NATO-Symbol rechts unten.
+      const bw = w * 0.36, bh = h * 0.3, bx = x + w / 2 - bw * 0.75, by = cy + h / 2 - bh * 0.6;
+      ctx.fillStyle = 'rgba(250,248,240,0.97)'; ctx.strokeStyle = '#1d1d1d'; ctx.lineWidth = 1.2;
+      ctx.fillRect(bx, by, bw, bh); ctx.strokeRect(bx, by, bw, bh);
+      drawUnitSymbol(ctx, u.cargo.type, bx, by, bw, bh, '#1d1d1d');
     }
     if (g.isSurprised(u)) {
       // Überraschte Einheit: oranges Warnzeichen links unten.
