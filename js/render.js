@@ -234,7 +234,100 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
 }
 
 // Spielstein: NATO-Symbol, Flagge, Silhouette und (optional) Stärke.
-function drawCounter(ctx, nationKey, type, x, y, w, h, hp) {
+// ---------- Gemalte Einheitengrafiken ----------
+// Sprites aus assets/units (erzeugt mit tools/generate-units.mjs und
+// tools/process-units.mjs). Fehlt eine Grafik, zeichnet drawCounter die Silhouette.
+
+const SPRITE_DIR = (typeof window !== 'undefined' && window.UNIT_SPRITE_DIR) || 'assets/units/';
+const spriteCache = {};
+
+function loadSprite(key) {
+  const meta = typeof UNIT_SPRITES !== 'undefined' && UNIT_SPRITES[key];
+  if (!meta) return null;
+  if (!spriteCache[key]) {
+    const img = src => { const i = new Image(); i.src = src; return i; };
+    spriteCache[key] = { meta, base: img(SPRITE_DIR + key + '.png'), barrel: meta.barrel ? img(SPRITE_DIR + key + '.barrel.png') : null };
+  }
+  return spriteCache[key];
+}
+if (typeof UNIT_SPRITES !== 'undefined') Object.keys(UNIT_SPRITES).forEach(loadSprite);
+
+function unitSprite(nationKey, type) {
+  const sp = loadSprite(`${nationKey}.${type}`);
+  const ready = i => !i || (i.complete && i.naturalWidth > 0);
+  return sp && ready(sp.base) && ready(sp.barrel) ? sp : null;
+}
+
+// Fahrt: Ketten rütteln, Räder federn, Infanterie wippt im Schritt (Versatz in px).
+function driveBob(moveType, now, h) {
+  if (moveType === 'air') return 0;
+  return moveType === 'foot' ? -Math.abs(Math.sin(now / 80)) * h * 0.04
+    : Math.sin(now / (moveType === 'track' ? 28 : 55)) * h * 0.015;
+}
+
+// Bild samt weichem Schatten, einmal je Zeichengröße vorberechnet: shadowBlur in
+// jedem Frame wäre teuer. scale = Gerätepixel je Einheit des Zielkontexts.
+function shadowedImage(sp, img, dw, dh, scale) {
+  const pw = Math.max(1, Math.round(dw * scale)), key = (img === sp.base ? 'b' : 'r') + pw;
+  const cache = sp.shadows || (sp.shadows = new Map());
+  let c = cache.get(key);
+  if (!c) {
+    if (cache.size >= 16) cache.clear();
+    const ph = Math.max(1, Math.round(dh * scale)), blur = Math.max(1, dh * 0.08);
+    const pad = Math.ceil(blur * 1.5) + 1;
+    c = document.createElement('canvas');
+    c.width = pw + pad * 2; c.height = ph + pad * 2;
+    const g = c.getContext('2d');
+    g.shadowColor = 'rgba(0,0,0,0.5)'; g.shadowBlur = blur;
+    g.drawImage(img, pad, pad, pw, ph);
+    c.pad = pad / scale; c.scale = scale;
+    cache.set(key, c);
+  }
+  return c;
+}
+
+function drawShadowed(ctx, sp, img, x, y, dw, dh, scale) {
+  const c = shadowedImage(sp, img, dw, dh, scale);
+  ctx.drawImage(c, x - c.pad, y - c.pad, c.width / c.scale, c.height / c.scale);
+}
+
+// pose: dir (1 = nach rechts, −1 = nach links, Zwischenwerte beim Wenden),
+// elev (Rohrerhöhung in Rad), recoil (0–1), flash (0–1), bob (Versatz in px).
+function drawUnitSprite(ctx, sp, x, y, w, h, pose = {}) {
+  const m = sp.meta, k = Math.min(w / m.w, h / m.h);
+  const dw = m.w * k, dh = m.h * k;
+  const { dir = 1, elev = 0, recoil = 0, flash = 0, bob = 0 } = pose;
+  const t = ctx.getTransform(), scale = Math.hypot(t.c, t.d) || 1;
+  ctx.save();
+  ctx.translate(x + w / 2, y + (h - dh) / 2 + bob);
+  ctx.scale(dir, 1);
+  ctx.translate(-dw / 2 - recoil * dw * (sp.barrel ? 0.015 : 0.04), 0);
+  let mx = m.muzzle[0] * dw, my = m.muzzle[1] * dh;
+  if (sp.barrel) {
+    // Rohr hinter dem Körper zeichnen, damit es beim Rückstoß in der Blende verschwindet.
+    const px = m.pivot[0] * dw, py = m.pivot[1] * dh, c = Math.cos(elev), s = Math.sin(elev);
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate(-elev); ctx.translate(-recoil * dw * 0.07, 0);
+    drawShadowed(ctx, sp, sp.barrel, -px, -py, dw, dh, scale);
+    ctx.restore();
+    const dx = mx - px - recoil * dw * 0.07, dy = my - py;
+    mx = px + dx * c + dy * s; my = py - dx * s + dy * c;
+  }
+  drawShadowed(ctx, sp, sp.base, 0, 0, dw, dh, scale);
+  if (flash > 0) {
+    const r = Math.max(3, dh * 0.4) * flash;
+    ctx.translate(mx, my); ctx.rotate(-elev);
+    const grd = ctx.createRadialGradient(r * 0.3, 0, 0, r * 0.3, 0, r);
+    grd.addColorStop(0, 'rgba(255,250,210,1)');
+    grd.addColorStop(0.35, 'rgba(255,190,70,0.9)');
+    grd.addColorStop(1, 'rgba(255,120,30,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.ellipse(r * 0.5, 0, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawCounter(ctx, nationKey, type, x, y, w, h, hp, pose) {
   const n = NATIONS[nationKey];
   const r = h * 0.14;
   ctx.fillStyle = n.color;
@@ -253,7 +346,9 @@ function drawCounter(ctx, nationKey, type, x, y, w, h, hp) {
   drawFlag(ctx, nationKey, fx, by, fw, fh);
 
   const withHp = hp !== undefined;
-  drawUnitIcon(ctx, type, x + w * 0.08, y + h * 0.42, w * 0.84, h * (withHp ? 0.42 : 0.5), n.text);
+  const sp = unitSprite(nationKey, type);
+  if (sp) drawUnitSprite(ctx, sp, x + w * 0.05, y + h * 0.4, w * 0.9, h * (withHp ? 0.46 : 0.54), pose);
+  else drawUnitIcon(ctx, type, x + w * 0.08, y + h * 0.42, w * 0.84, h * (withHp ? 0.42 : 0.5), n.text);
   if (withHp) {
     const barX = x + w * 0.07, barY = y + h * 0.87, barW = w * 0.86, barH = Math.max(2, h * 0.07);
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(barX, barY, barW, barH);
@@ -273,6 +368,8 @@ class View {
     this.ctx = canvas.getContext('2d');
     this.game = null;
     this.moveAnims = new Map();
+    this.facing = new Map();    // Einheit → { dir, from, start } (Blickrichtung, nur Darstellung)
+    this.fireAnims = new Map(); // Einheit → { start, aim, elev }
     this.effects = [];
     this.overlay = { reach: null, targets: [], path: null, selected: null, hover: null, buyTile: null, loads: [], unloads: [] };
     this.terrainCache = null;
@@ -285,6 +382,8 @@ class View {
   setGame(game) {
     this.game = game;
     this.moveAnims.clear();
+    this.facing.clear();
+    this.fireAnims.clear();
     this.effects = [];
     this.resize();
   }
@@ -477,6 +576,7 @@ class View {
     const dur = 120 * (pts.length - 1);
     const anim = { pts, start: performance.now(), dur };
     this.moveAnims.set(unit.id, anim);
+    this.face(unit, pts[pts.length - 1][0] - pts[0][0]);
     return sleep(dur).then(() => {
       if (this.moveAnims.get(unit.id) === anim) this.moveAnims.delete(unit.id);
     });
@@ -492,7 +592,56 @@ class View {
     return sleep(450);
   }
 
+  // Blickrichtung ändern, wenn dx deutlich nach links oder rechts zeigt.
+  // Liefert true, wenn dafür gewendet wird.
+  face(u, dx) {
+    if (Math.abs(dx) < this.size * 0.2) return false;
+    const dir = dx > 0 ? 1 : -1, cur = this.facingOf(u, performance.now());
+    if (cur === dir) return false;
+    this.facing.set(u.id, { dir, from: cur, start: performance.now() });
+    return true;
+  }
+
+  facingOf(u, now) {
+    const f = this.facing.get(u.id);
+    if (!f) return u.owner === 0 ? 1 : -1; // Spieler 0 beginnt links
+    const t = Math.min(1, Math.max(0, now - f.start) / 180);
+    return f.from + (f.dir - f.from) * t;
+  }
+
+  // Zielen und Feuern: Rohr richten (Artillerie steil, Flak gegen Flugzeuge steil),
+  // dann Rückstoß und Mündungsfeuer. Liefert die Zeit bis zum Schuss
+  // (0, wenn der Schütze im Nebel steht und die Animation niemand sieht).
+  startFire(att, def) {
+    const [ax] = this.center(att.q, att.r), [dx] = this.center(def.q, def.r);
+    const turn = this.face(att, dx - ax);
+    const vsAir = this.game.stats(def).isAir;
+    const dist = hexDistance(att.q, att.r, def.q, def.r);
+    const elev = { art: 0.2 + dist * 0.07, hflak: vsAir ? 0.75 : 0.05, lflak: vsAir ? 0.6 : 0.03 }[att.type] ?? (vsAir ? 0.3 : 0);
+    // Rohr heben nur abwarten, wenn sich auch sichtbar ein Rohr hebt.
+    const sp = unitSprite(this.game.players[att.owner].nation, att.type);
+    const aim = (turn ? 180 : 0) + (elev > 0.1 && sp?.barrel ? 260 : 0);
+    this.fireAnims.set(att.id, { start: performance.now(), aim, elev });
+    return !this.vis || this.vis.has(hexKey(att.q, att.r)) ? aim : 0;
+  }
+
+  firePose(u, now) {
+    const f = this.fireAnims.get(u.id);
+    if (!f) return {};
+    const t = Math.max(0, now - f.start), ease = v => v * v * (3 - 2 * v);
+    if (t > f.aim + 700) { this.fireAnims.delete(u.id); return {}; }
+    const st = t - f.aim; // Zeit seit dem Schuss
+    const elev = st < 0 ? f.elev * ease(f.aim ? t / f.aim : 1) : st < 400 ? f.elev : f.elev * (1 - ease((st - 400) / 300));
+    return {
+      elev,
+      recoil: st < 0 ? 0 : st < 60 ? st / 60 : Math.max(0, 1 - (st - 60) / 300),
+      flash: st < 0 || st > 110 ? 0 : 1 - st / 110,
+    };
+  }
+
   async showAttack(att, def) {
+    const aim = this.startFire(att, def);
+    if (aim) await sleep(aim);
     this.addEffect({ kind: 'shot', from: [att.q, att.r], to: [def.q, def.r], dur: 260 });
     await sleep(240);
   }
@@ -501,7 +650,7 @@ class View {
     this.addEffect({ kind: 'boom', q: def.q, r: def.r, dur: 420 });
     this.addEffect({ kind: 'text', q: def.q, r: def.r, text: res.defKilled ? 'Vernichtet' : `−${res.dmg}`, color: '#ff6b5a', dur: 1100 });
     if (res.counter) {
-      await sleep(260);
+      await sleep(this.startFire(def, att) + 260);
       this.addEffect({ kind: 'boom', q: att.q, r: att.r, dur: 380 });
       this.addEffect({ kind: 'text', q: att.q, r: att.r, text: res.attKilled ? 'Vernichtet' : `−${res.counter}`, color: '#ffb35a', dur: 1100 });
     }
@@ -511,7 +660,7 @@ class View {
   unitPos(u, now) {
     const a = this.moveAnims.get(u.id);
     if (!a) return this.center(u.q, u.r);
-    const t = Math.min(1, (now - a.start) / a.dur);
+    const t = Math.min(1, Math.max(0, now - a.start) / a.dur);
     if (t >= 1) return a.pts[a.pts.length - 1];
     const f = t * (a.pts.length - 1);
     const i = Math.floor(f), k = f - i;
@@ -651,7 +800,9 @@ class View {
     }
     ctx.fillStyle = 'rgba(0,0,0,0.38)';
     roundRect(ctx, x - w / 2 + 2, cy - h / 2 + 3, w, h, h * 0.14); ctx.fill();
-    drawCounter(ctx, g.players[u.owner].nation, u.type, x - w / 2, cy - h / 2, w, h, u.hp);
+    const pose = { dir: this.facingOf(u, now), ...this.firePose(u, now) };
+    if (this.moveAnims.has(u.id) && !st.isAir) pose.bob = driveBob(st.moveType, now, h);
+    drawCounter(ctx, g.players[u.owner].nation, u.type, x - w / 2, cy - h / 2, w, h, u.hp, pose);
     if (done) {
       ctx.fillStyle = 'rgba(20,20,20,0.45)';
       roundRect(ctx, x - w / 2, cy - h / 2, w, h, h * 0.14); ctx.fill();
@@ -680,7 +831,7 @@ class View {
     this.effects = this.effects.filter(e => now - e.start < e.dur);
     const seen = (q, r) => !this.vis || this.vis.has(hexKey(q, r));
     for (const e of this.effects) {
-      const t = (now - e.start) / e.dur;
+      const t = Math.max(0, now - e.start) / e.dur;
       if (e.kind === 'shot' ? !seen(...e.from) && !seen(...e.to) : !seen(e.q, e.r)) continue;
       if (e.kind === 'text') {
         const [x, y] = this.center(e.q, e.r);
