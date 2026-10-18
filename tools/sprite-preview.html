@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Sprite-Vorschau</title>
+<style>
+  body { margin: 0; padding: 20px 24px 40px; background: #2b2d24; color: #e8e4d6; font: 15px/1.45 system-ui, sans-serif; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 8px; }
+  p { margin: 4px 0 10px; color: #c8c3b1; max-width: 900px; }
+  a { color: #ffd54a; }
+  canvas { display: block; background: #a9b071; border-radius: 6px; max-width: 100%; }
+  button { font: inherit; padding: 6px 12px; margin: 0 6px 6px 0; border-radius: 5px; border: 1px solid #6d6a55; background: #3d3f33; color: #f0ecdc; cursor: pointer; }
+  button:hover { background: #4b4e3f; }
+</style>
+<script>window.UNIT_SPRITE_DIR = '../assets/units/';</script>
+<script src="../assets/units/sprites.js"></script>
+<script src="../config/einheiten.js"></script>
+<script src="../config/nationen.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/hex.js"></script>
+<script src="../js/render.js"></script>
+</head>
+<body>
+<h1>Einheitengrafiken</h1>
+<p>Alle Sprites aus <code>assets/units</code>, Zeilen = Nationen, Spalten = Einheitentypen. Hex-Größe wählen: <a href="?size=26">26</a> · <a href="?size=34">34</a> · <a href="?size=46">46</a> (Standard).</p>
+
+<h2>Auf dem Brett</h2>
+<p>Echte Spielsteine (<code>drawCounter</code>). Je Einheit links Spieler 0 (schaut nach rechts), rechts Spieler 1 (gespiegelt und beschädigt).</p>
+<canvas id="board"></canvas>
+
+<h2>Animationen</h2>
+<p>Rohrerhöhung, Rückstoß und Mündungsfeuer, Wenden und Fahrbewegung, so wie sie <code>View</code> im Spiel abspielt. „Luftziel“ hebt die Rohre an wie bei Flak und Artillerie; bei Panzern und Pak dient das nur der Vorführung.</p>
+<div>
+  <button data-act="fire">Feuern</button>
+  <button data-act="air">Feuern auf Luftziel</button>
+  <button data-act="turn">Wenden</button>
+  <button data-act="drive">Fahren</button>
+</div>
+<canvas id="anim"></canvas>
+
+<script>
+const ROWS = Object.keys(NATION_CONFIG), COLS = Object.keys(UNIT_CONFIG);
+const BS = +new URLSearchParams(location.search).get('size') || 46;
+
+function setup(canvas, w, h) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+
+function hexBg(ctx, x, y, s, terrain) {
+  hexPath(ctx, x, y, s);
+  ctx.fillStyle = TERRAIN_COLORS[terrain]; ctx.fill();
+  ctx.strokeStyle = 'rgba(40,40,20,0.28)'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+function labels(ctx, x0, y0, cellW, cellH) {
+  ctx.fillStyle = '#cfcab5'; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+  COLS.forEach((t, j) => ctx.fillText(UNIT_CONFIG[t].label, x0 + (j + 0.5) * cellW, y0 - 8));
+  ctx.textAlign = 'left';
+  ROWS.forEach((n, i) => ctx.fillText(NATION_CONFIG[n].short, 8, y0 + (i + 0.5) * cellH + 4));
+}
+
+// --- Brett ---
+function drawBoard() {
+  const s = BS, hexW = SQRT3 * s, cellW = hexW * 2 + 12, cellH = s * 2.1, x0 = 110, y0 = 26;
+  const ctx = setup(document.getElementById('board'), x0 + COLS.length * cellW, y0 + ROWS.length * cellH);
+  ctx.fillStyle = '#3a3c31'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  labels(ctx, x0, y0, cellW, cellH);
+  const terr = ['plain', 'forest', 'hills', 'city'];
+  ROWS.forEach((n, i) => COLS.forEach((t, j) => {
+    const cy = y0 + (i + 0.5) * cellH;
+    [[1, 10], [-1, 4]].forEach(([dir, hp], k) => {
+      const cx = x0 + j * cellW + 6 + hexW / 2 + k * hexW;
+      hexBg(ctx, cx, cy, s, terr[(i + j) % terr.length]);
+      const w = s * 1.3, h = s;
+      drawCounter(ctx, n, t, cx - w / 2, cy - h / 2, w, h, hp, { dir });
+    });
+  }));
+}
+
+// --- Animationen ---
+// Nutzt die Animationslogik von View mit einer Attrappe als „this“.
+const fake = { facing: new Map(), fireAnims: new Map(), size: 100 };
+const units = ROWS.flatMap((nation, i) => COLS.map((type, j) => ({ id: i * COLS.length + j, owner: 0, nation, type, row: i, col: j })));
+const moving = new Map();
+
+document.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
+  const now = performance.now();
+  for (const u of units) {
+    if (b.dataset.act === 'fire') fake.fireAnims.set(u.id, { start: now, aim: 0, elev: 0 });
+    if (b.dataset.act === 'air') fake.fireAnims.set(u.id, { start: now, aim: 260, elev: 0.6 });
+    if (b.dataset.act === 'turn') { const cur = View.prototype.facingOf.call(fake, u, now); fake.facing.set(u.id, { dir: cur > 0 ? -1 : 1, from: cur, start: now }); }
+    if (b.dataset.act === 'drive') moving.set(u.id, now + 1500);
+  }
+});
+
+const S = 56, CW = SQRT3 * S + 10, CH = S * 2.1, AX = 110, AY = 26, AW = AX + COLS.length * CW, AH = AY + ROWS.length * CH;
+const actx = setup(document.getElementById('anim'), AW, AH);
+// Standbild zum Prüfen: ?still=air:300 zeigt „Luftziel“ 300 ms nach dem Start.
+const STILL = new URLSearchParams(location.search).get('still')?.split(':');
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (STILL) for (const u of units) fake.fireAnims.set(u.id, { start: now - +STILL[1], aim: STILL[0] === 'air' ? 260 : 0, elev: STILL[0] === 'air' ? 0.6 : 0 });
+  actx.fillStyle = '#3a3c31'; actx.fillRect(0, 0, AW, AH);
+  labels(actx, AX, AY, CW, CH);
+  units.forEach(u => {
+    const cx = AX + (u.col + 0.5) * CW, cy = AY + (u.row + 0.5) * CH;
+    hexBg(actx, cx, cy, S, 'plain');
+    const pose = { dir: View.prototype.facingOf.call(fake, u, now), ...View.prototype.firePose.call(fake, u, now) };
+    if ((moving.get(u.id) ?? 0) > now) {
+      const mt = UNIT_CONFIG[u.type].moveType;
+      pose.bob = mt === 'foot' ? -Math.abs(Math.sin(now / 80)) * S * 0.04 : mt === 'air' ? 0 : Math.sin(now / (mt === 'track' ? 28 : 55)) * S * 0.015;
+    }
+    const w = S * 1.3, h = S;
+    drawCounter(actx, u.nation, u.type, cx - w / 2, cy - h / 2, w, h, 10, pose);
+  });
+}
+
+// Erst zeichnen, wenn alle Sprites geladen sind.
+Promise.all(Object.values(spriteCache).flatMap(s => [s.base, s.barrel]).filter(Boolean)
+  .map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; }))).then(() => {
+  drawBoard();
+  requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>
