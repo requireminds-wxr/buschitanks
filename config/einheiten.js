@@ -8,10 +8,10 @@
 //
 //  Zwei Arten von Klassen:
 //  - Allgemeine Klassen (Infanterie, Aufklärung, LKW, Halbkette, Pak,
-//    Artillerie, Flak) sind direkt baubar. Jede Nation gibt ihnen nur einen
+//    Artillerie, schwere Flak) sind direkt baubar. Jede Nation gibt ihnen nur einen
 //    eigenen Namen und kleine Abweichungen (config/nationen.js).
-//  - Modellklassen (modelsOnly: true – Panzer, Jagdpanzer, Flakpanzer,
-//    Flugzeuge) sind nicht direkt baubar. Gebaut werden die konkreten Modelle
+//  - Modellklassen (modelsOnly: true – Panzer, Jagdpanzer, leichte Flak auf
+//    LKW/Halbkette, Flakpanzer, Flugzeuge) sind nicht direkt baubar. Gebaut werden die konkreten Modelle
 //    aus config/modelle.js (z. B. Panzer IV, T-34/85, P-51D). Die Werte hier
 //    gelten für ein Modell nur, wenn es selbst keinen Wert angibt.
 //
@@ -183,13 +183,13 @@ const UNIT_CONFIG = {
 
   lflak: {
     class: 'lflak',
-    label: 'Leichte Flak',
+    label: 'Leichte Flak (Sfl.)',
     moveType: 'wheel', move: 7,
     soft: 10, hard: 2, air: 10,
     def: 3, armor: 0,
     towed: false, fire: 'direct', range: [1, 2],
     vision: 2, cost: 200,
-    aa: true,
+    aa: true, modelsOnly: true,
   },
 
   hflak: {
