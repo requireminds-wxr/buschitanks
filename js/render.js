@@ -89,7 +89,7 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
   ctx.lineCap = 'round';
   const cx = x + w / 2, cy = y + h / 2;
   const oval = (rx, ry) => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); };
-  switch (type) {
+  switch (unitClass(type)) {
     case 'inf':
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h); ctx.moveTo(x + w, y); ctx.lineTo(x, y + h); ctx.stroke();
       break;
@@ -99,8 +99,20 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
     case 'tank':
       oval(w * 0.33, h * 0.27);
       break;
+    case 'light':
+      oval(w * 0.24, h * 0.2);
+      break;
     case 'heavy':
       oval(w * 0.36, h * 0.32); oval(w * 0.2, h * 0.12);
+      break;
+    case 'td':
+      // Panzerabwehr (umgekehrtes V) auf Ketten (Oval).
+      oval(w * 0.33, h * 0.24);
+      ctx.beginPath(); ctx.moveTo(x + w * 0.12, y + h); ctx.lineTo(cx, y); ctx.lineTo(x + w * 0.88, y + h); ctx.stroke();
+      break;
+    case 'spaa':
+      oval(w * 0.3, h * 0.2);
+      ctx.beginPath(); ctx.ellipse(cx, y + h, w * 0.42, h * 0.85, 0, Math.PI, 0); ctx.stroke();
       break;
     case 'at':
       ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(cx, y); ctx.lineTo(x + w, y + h); ctx.stroke();
@@ -125,12 +137,17 @@ function drawUnitSymbol(ctx, type, x, y, w, h, color) {
       ctx.beginPath(); ctx.arc(x + w * 0.22, y + h * 0.82, h * 0.1, 0, Math.PI * 2); ctx.fill();
       roundRect(ctx, x + w * 0.42, y + h * 0.72, w * 0.42, h * 0.2, h * 0.1); ctx.stroke();
       break;
-    case 'air':
+    case 'fighter':
+    case 'attack':
+      // Luftfahrzeug, dazu F (Jäger) bzw. A (Schlachtflugzeug).
       ctx.beginPath();
       ctx.ellipse(cx - w * 0.15, cy, w * 0.15, h * 0.2, 0, 0, Math.PI * 2);
       ctx.moveTo(cx + w * 0.3, cy);
       ctx.ellipse(cx + w * 0.15, cy, w * 0.15, h * 0.2, 0, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.font = `bold ${Math.round(h * 0.42)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(unitClass(type) === 'fighter' ? 'F' : 'A', cx, y + h * 0.58);
       break;
   }
   ctx.restore();
@@ -154,7 +171,7 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
     for (let i = 0; i < n; i++) circle(tx + th / 2 + i * (tw - th) / (n - 1), ty + th / 2, th * 0.28);
     ctx.restore();
   };
-  switch (type) {
+  switch (unitClass(type)) {
     case 'inf':
       ctx.beginPath(); ctx.ellipse(50, 11, 10, 7, 0, Math.PI, 0); ctx.fill();
       ctx.fillRect(37, 10, 26, 3);
@@ -175,6 +192,23 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
       poly([[11, 38], [18, 28], [84, 28], [90, 38]]);
       poly([[32, 28], [37, 16], [62, 16], [67, 28]]);
       line(62, 21, 97, 19, 3.5);
+      break;
+    case 'light':
+      track(14, 40, 72, 14);
+      poly([[18, 40], [24, 31], [80, 31], [84, 40]]);
+      poly([[38, 31], [42, 22], [58, 22], [62, 31]]);
+      line(58, 26, 84, 25, 3);
+      break;
+    case 'td':
+      track(6, 38, 86, 16);
+      poly([[11, 38], [16, 22], [74, 22], [90, 38]]);
+      line(70, 28, 98, 26, 4.5);
+      break;
+    case 'spaa':
+      track(6, 38, 86, 16);
+      poly([[11, 38], [18, 28], [84, 28], [90, 38]]);
+      poly([[34, 28], [36, 16], [62, 16], [66, 28]]);
+      line(50, 20, 74, 2, 3); line(56, 22, 80, 4, 3);
       break;
     case 'heavy':
       track(3, 37, 92, 19);
@@ -221,7 +255,8 @@ function drawUnitIcon(ctx, type, x, y, w, h, color) {
       track(6, 38, 56, 16);
       circle(84, 47, 8);
       break;
-    case 'air':
+    case 'fighter':
+    case 'attack':
       ctx.beginPath(); ctx.ellipse(52, 30, 40, 6.5, 0, 0, Math.PI * 2); ctx.fill();
       poly([[44, 27], [52, 2], [62, 2], [61, 27]]);
       poly([[44, 33], [52, 58], [62, 58], [61, 33]]);
@@ -252,8 +287,18 @@ function loadSprite(key) {
 }
 if (typeof UNIT_SPRITES !== 'undefined') Object.keys(UNIT_SPRITES).forEach(loadSprite);
 
+// Modelle ohne eigene Grafik nutzen die Grafik ihrer Klasse (bzw. einer verwandten).
+const SPRITE_CLASS = { light: 'tank', td: 'tank', spaa: 'tank', fighter: 'air', attack: 'air' };
+function spriteKey(nationKey, type) {
+  if (hasSprite(`${nationKey}.${type}`)) return `${nationKey}.${type}`;
+  const m = MODELS[type];
+  const cls = unitClass(type);
+  return `${nationKey}.${(m && m.sprite) || SPRITE_CLASS[cls] || cls}`;
+}
+function hasSprite(key) { return typeof UNIT_SPRITES !== 'undefined' && !!UNIT_SPRITES[key]; }
+
 function unitSprite(nationKey, type) {
-  const sp = loadSprite(`${nationKey}.${type}`);
+  const sp = loadSprite(spriteKey(nationKey, type));
   const ready = i => !i || (i.complete && i.naturalWidth > 0);
   return sp && ready(sp.base) && ready(sp.barrel) ? sp : null;
 }

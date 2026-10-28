@@ -1,5 +1,6 @@
 // Spiellogik ohne DOM-Abhängigkeiten.
 
+// Startarmee als Klassen; Panzer werden zum günstigsten Modell der Nation in der ersten Epoche.
 const START_ARMY = ['inf', 'inf', 'inf', 'recon', 'tank', 'at', 'art', 'truck'];
 
 class Game {
@@ -34,6 +35,11 @@ class Game {
   stats(u) { return unitStats(this.players[u.owner].nation, u.type); }
   unitCost(player, type) { return unitStats(this.players[player].nation, type).cost; }
   nationOf(player) { return NATIONS[this.players[player].nation]; }
+
+  // Aktuelle Epoche; bestimmt, welche Modelle gebaut werden können (für beide Seiten gleich).
+  get era() { return eraOfTurn(this.turn); }
+  nextEra() { return ERAS.find(e => e.fromTurn > this.turn) || null; }
+  buildable(player) { return buildableTypes(this.players[player].nation, this.era.key); }
 
   incomeOf(player) {
     let sum = 0;
@@ -169,10 +175,49 @@ class Game {
     return path;
   }
 
-  inRange(u, fromQ, fromR, target) {
-    const range = this.stats(u).range;
-    const d = hexDistance(fromQ, fromR, target.q, target.r);
-    return d >= range[0] && d <= range[1];
+  // Reichweite und – bei direktem Feuer – freies Schussfeld.
+  // toQ/toR: Stellung des Ziels, falls abweichend (Gegenschlag auf hypothetische Angreiferstellung).
+  inRange(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
+    const s = this.stats(u);
+    const d = hexDistance(fromQ, fromR, toQ, toR);
+    if (d < s.range[0] || d > s.range[1]) return false;
+    if (s.fire !== 'direct') return true;
+    const lof = this.lineOfFire(u, fromQ, fromR, target, toQ, toR);
+    return lof.clear && d <= this.effectiveRange(u, lof.reduce);
+  }
+
+  // Höchste Reichweite bei direktem Feuer nach Abzug für Wald und Hügel; ein
+  // Nachbarfeld ist immer erreichbar.
+  effectiveRange(u, reduce) { return Math.max(1, this.stats(u).range[1] - reduce); }
+
+  // Direktes Feuer: Gebirge, Städte (auch HQ) und Bodeneinheiten, die der Schütze
+  // sieht, blockieren die Schusslinie. Jedes Wald- oder Hügelfeld auf der Linie –
+  // auch das Feld des Ziels – verkürzt die Reichweite um 1. Flugzeuge schießen und
+  // werden beschossen, ohne dass etwas im Weg ist. Liegt die Linie genau auf der
+  // Kante zweier Felder, zählt die günstigere Seite.
+  // Ergebnis: { clear, reduce }
+  lineOfFire(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
+    if (this.stats(u).isAir || this.stats(target).isAir) return { clear: true, reduce: 0 };
+    const n = hexDistance(fromQ, fromR, toQ, toR);
+    const reduces = (q, r) => { const t = this.tile(q, r); return t && REDUCES_RANGE.includes(t.terrain) ? 1 : 0; };
+    const blocked = (q, r) => {
+      const tile = this.tile(q, r);
+      if (tile && BLOCKS_LINE_OF_FIRE.includes(tile.terrain)) return true;
+      const e = this.units.find(x => x.q === q && x.r === r && x !== u && x !== target && !this.stats(x).isAir);
+      return !!e && (e.owner === u.owner || this.canSee(u.owner, e));
+    };
+    const trace = eps => {
+      let reduce = reduces(toQ, toR);
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const [q, r] = hexRound(fromQ + (toQ - fromQ) * t + eps, fromR + (toR - fromR) * t + eps);
+        if (blocked(q, r)) return { clear: false, reduce: Infinity };
+        reduce += reduces(q, r);
+      }
+      return { clear: true, reduce };
+    };
+    const a = trace(1e-6), b = trace(-1e-6);
+    return a.reduce <= b.reduce ? a : b;
   }
 
   // Angriffswert inklusive Abzügen (Bewegung, Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).
@@ -217,9 +262,10 @@ class Game {
     return a * (attHp / 10) * 1.2 / (1 + defense * 0.12);
   }
 
-  canCounter(def, att, dist) {
+  // attQ/attR: Stellung des Angreifers (für die KI auch hypothetisch).
+  canCounter(def, att, attQ, attR) {
     const s = this.stats(def);
-    return !s.noCounter && dist >= s.range[0] && dist <= s.range[1] && this.attackValue(def, att) > 0;
+    return !s.noCounter && this.inRange(def, def.q, def.r, att, attQ, attR) && this.attackValue(def, att) > 0;
   }
 
   // Kampfprognose für die Anzeige und die KI.
@@ -231,8 +277,7 @@ class Game {
     const min = roundDmg(base * 0.85), max = roundDmg(base * 1.15), avg = roundDmg(base);
     const defHpAfter = Math.max(0, def.hp - avg);
     let cmin = 0, cmax = 0, cavg = 0;
-    const dist = hexDistance(fq, fr, def.q, def.r);
-    if (defHpAfter > 0 && this.canCounter(def, att, dist)) {
+    if (defHpAfter > 0 && this.canCounter(def, att, fq, fr)) {
       const cb = this.baseDamage(def, att, defHpAfter, [fq, fr]);
       const rc = x => (cb > 0 ? Math.max(1, Math.round(x)) : 0);
       cmin = rc(cb * 0.85); cmax = rc(cb * 1.15); cavg = rc(cb);
@@ -299,11 +344,10 @@ class Game {
   attack(att, def) {
     if (!this.canAttackNow(att) || !this.inRange(att, att.q, att.r, def)) return null;
     const as = this.stats(att), ds = this.stats(def);
-    const dist = hexDistance(att.q, att.r, def.q, def.r);
     const dmg = this.rollDamage(att, def, att.hp);
     def.hp = Math.max(0, def.hp - dmg);
     let counter = 0;
-    if (def.hp > 0 && this.canCounter(def, att, dist)) {
+    if (def.hp > 0 && this.canCounter(def, att, att.q, att.r)) {
       counter = this.rollDamage(def, att, def.hp, [def.q, def.r]);
       att.hp = Math.max(0, att.hp - counter);
     }
@@ -395,6 +439,7 @@ class Game {
 
   buy(type, tile) {
     const p = this.players[this.current];
+    if (!this.buildable(this.current).includes(type)) return null;
     const cost = this.unitCost(this.current, type);
     if (tile.owner !== this.current || !TERRAIN[tile.terrain].capturable) return null;
     if (this.unitAt(tile.q, tile.r) || p.funds < cost) return null;
@@ -421,6 +466,9 @@ class Game {
     this.version++;
     if (this.current === 0) this.turn++;
     if (this.turn > MAX_TURNS) { this.decideByPoints(); return; }
+    if (this.current === 0 && this.era.fromTurn === this.turn && this.turn > 1) {
+      this.addLog(`Neue Epoche ${this.era.name}: Neue Panzer und Flugzeuge können gebaut werden.`, -1);
+    }
     this.startTurn();
   }
 
@@ -491,8 +539,11 @@ class Game {
     const nearby = [...this.map.tiles.values()]
       .filter(t => !TERRAIN[t.terrain].capturable)
       .sort((a, b) => hexDistance(a.q, a.r, hq.q, hq.r) - hexDistance(b.q, b.r, hq.q, hq.r) || a.row - b.row || a.col - b.col);
-    for (const type of START_ARMY) {
-      const mt = UNIT_TYPES[type].moveType;
+    const nation = this.players[player].nation;
+    for (const cls of START_ARMY) {
+      const type = startTypeFor(nation, cls);
+      if (!type) continue;
+      const mt = unitStats(nation, type).moveType;
       const spot = nearby.find(t => TERRAIN[t.terrain].cost[mt] < IMPASSABLE && !this.unitAt(t.q, t.r));
       if (spot) this.spawn(type, player, spot.q, spot.r);
     }
