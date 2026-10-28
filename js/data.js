@@ -24,8 +24,10 @@ const TERRAIN = {
 
 const MOVE_TYPE_LABEL = { foot: 'zu Fuß', wheel: 'Räder', track: 'Ketten/Halbketten', air: 'Luft' };
 const FIRE_TYPE_LABEL = { direct: 'direkt', indirect: 'indirekt' };
-// Gelände, das direktes Feuer blockiert.
-const BLOCKS_LINE_OF_FIRE = ['mountain'];
+// Direktes Feuer: Gelände, das die Schusslinie blockiert, und Gelände, das die
+// Reichweite je Feld auf der Linie (inklusive Zielfeld) um 1 verkürzt.
+const BLOCKS_LINE_OF_FIRE = ['mountain', 'city', 'hq'];
+const REDUCES_RANGE = ['forest', 'hills'];
 
 // Einheitenwerte stehen in config/einheiten.js (UNIT_CONFIG) und werden hier geprüft.
 // Generische Einheitenklassen: bestimmen NATO-Symbol, Silhouette und KI-Verhalten.

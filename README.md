@@ -20,7 +20,7 @@ python3 -m http.server 8765
 - Allgemeine Einheiten: Infanterie, Aufklärung, LKW, Halbkettenfahrzeug, Panzerabwehr, Artillerie, Leichte und Schwere Flak – mit Namen und kleinen Abweichungen je Nation. Alle Einheiten mit NATO-Symbol und Grafik.
 - Nebel des Krieges (abschaltbar): Jeder Typ hat eine Sichtweite, Aufklärer und Flugzeuge sehen in Wälder. Nur aufgeklärte Gegner sind sichtbar und angreifbar; unentdeckte Gegner führen zu Hinterhalten.
 - Leichte Flak (1–3 Felder) ist auch gegen weiche Ziele stark, schwere Flak wie die 8,8 cm (2–5 Felder) auch gegen Panzer. Artillerie schießt 2–5 Felder weit.
-- Direktes Feuer braucht freies Schussfeld (kein Gebirge, keine sichtbare Bodeneinheit dazwischen); Artillerie feuert indirekt über alles hinweg.
+- Direktes Feuer braucht freie Sicht: Gebirge, Städte und sichtbare Bodeneinheiten blockieren, jedes Wald- oder Hügelfeld auf der Linie verkürzt die Reichweite um 1. Panzer mit langer Kanone schießen 2, mit sehr langer 3 Felder weit. Artillerie feuert indirekt über alles hinweg.
 - Artillerie und Flak sind gezogen und bewegen sich nur mit LKW oder Halbkettenfahrzeug (Ausnahme: US-Flakpanzer M16). Auch Infanterie kann mitfahren. Ein Fahrzeug lädt eine Einheit; wird es beladen vernichtet, ist die Ladung verloren.
 - Straßen: jedes Feld kostet 1 Bewegungspunkt. Abseits bremst das Gelände, Radfahrzeuge stärker als Ketten. Sümpfe sind nur für Infanterie passierbar.
 - Artillerie und Panzerabwehr können keine Flugzeuge angreifen; andere Bodeneinheiten außer Flak haben gegen Flugzeuge nur 80 % Angriffskraft.

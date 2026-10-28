@@ -181,32 +181,43 @@ class Game {
     const s = this.stats(u);
     const d = hexDistance(fromQ, fromR, toQ, toR);
     if (d < s.range[0] || d > s.range[1]) return false;
-    return s.fire !== 'direct' || this.clearShot(u, fromQ, fromR, target, toQ, toR);
+    if (s.fire !== 'direct') return true;
+    const lof = this.lineOfFire(u, fromQ, fromR, target, toQ, toR);
+    return lof.clear && d <= this.effectiveRange(u, lof.reduce);
   }
 
-  // Direktes Feuer: Zwischen Schütze und Ziel darf kein Gebirge liegen und keine
-  // Bodeneinheit stehen, die der Schütze sieht. Flugzeuge schießen und werden
-  // beschossen, ohne dass etwas im Weg ist. Liegt die Linie genau auf der Kante
-  // zweier Felder, genügt es, wenn eine der beiden Seiten frei ist.
-  clearShot(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
-    if (this.stats(u).isAir || this.stats(target).isAir) return true;
+  // Höchste Reichweite bei direktem Feuer nach Abzug für Wald und Hügel; ein
+  // Nachbarfeld ist immer erreichbar.
+  effectiveRange(u, reduce) { return Math.max(1, this.stats(u).range[1] - reduce); }
+
+  // Direktes Feuer: Gebirge, Städte (auch HQ) und Bodeneinheiten, die der Schütze
+  // sieht, blockieren die Schusslinie. Jedes Wald- oder Hügelfeld auf der Linie –
+  // auch das Feld des Ziels – verkürzt die Reichweite um 1. Flugzeuge schießen und
+  // werden beschossen, ohne dass etwas im Weg ist. Liegt die Linie genau auf der
+  // Kante zweier Felder, zählt die günstigere Seite.
+  // Ergebnis: { clear, reduce }
+  lineOfFire(u, fromQ, fromR, target, toQ = target.q, toR = target.r) {
+    if (this.stats(u).isAir || this.stats(target).isAir) return { clear: true, reduce: 0 };
     const n = hexDistance(fromQ, fromR, toQ, toR);
-    if (n <= 1) return true;
+    const reduces = (q, r) => { const t = this.tile(q, r); return t && REDUCES_RANGE.includes(t.terrain) ? 1 : 0; };
     const blocked = (q, r) => {
       const tile = this.tile(q, r);
       if (tile && BLOCKS_LINE_OF_FIRE.includes(tile.terrain)) return true;
       const e = this.units.find(x => x.q === q && x.r === r && x !== u && x !== target && !this.stats(x).isAir);
       return !!e && (e.owner === u.owner || this.canSee(u.owner, e));
     };
-    const lineFree = eps => {
+    const trace = eps => {
+      let reduce = reduces(toQ, toR);
       for (let i = 1; i < n; i++) {
         const t = i / n;
         const [q, r] = hexRound(fromQ + (toQ - fromQ) * t + eps, fromR + (toR - fromR) * t + eps);
-        if (blocked(q, r)) return false;
+        if (blocked(q, r)) return { clear: false, reduce: Infinity };
+        reduce += reduces(q, r);
       }
-      return true;
+      return { clear: true, reduce };
     };
-    return lineFree(1e-6) || lineFree(-1e-6);
+    const a = trace(1e-6), b = trace(-1e-6);
+    return a.reduce <= b.reduce ? a : b;
   }
 
   // Angriffswert inklusive Abzügen (Bewegung, Hinterhalt, Bodeneinheit ohne Flak gegen Flugzeug).

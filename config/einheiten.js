@@ -40,12 +40,14 @@
 //                  können von einem Transportfahrzeug geladen werden; mit
 //                  move: 0 bewegen sie sich nur so.
 //    fire          Feuerart:
-//                  'direct'   direktes Feuer – braucht freies Schussfeld: Auf den
-//                             Feldern zwischen Schütze und Ziel darf keine
-//                             (sichtbare) Bodeneinheit stehen und kein Gebirge
-//                             liegen. Gegen Flugzeuge und für Flugzeuge gilt das nicht.
+//                  'direct'   direktes Feuer – braucht freie Sicht aufs Ziel: Gebirge,
+//                             Städte (auch HQ) und (sichtbare) Bodeneinheiten
+//                             zwischen Schütze und Ziel blockieren den Schuss. Jedes
+//                             Wald- oder Hügelfeld auf der Linie – auch das Feld des
+//                             Ziels – verkürzt die Reichweite um 1 (Nachbarfeld geht
+//                             immer). Gegen Flugzeuge und für Flugzeuge gilt das nicht.
 //                  'indirect' indirektes Feuer (Steilfeuer) – trifft auch über
-//                             eigene oder gegnerische Einheiten und Gebirge hinweg.
+//                             Einheiten, Städte, Gebirge und Wald hinweg.
 //    range         Feuerentfernung [min, max] in Feldern, gezählt vom Feld des
 //                  Schützen bis zum Feld des Ziels: 1 = Nachbarfeld (kein Feld
 //                  dazwischen), 3 = zwei Felder dazwischen.
