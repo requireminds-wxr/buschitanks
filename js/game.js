@@ -1,5 +1,6 @@
 // Spiellogik ohne DOM-Abhängigkeiten.
 
+// Startarmee als Klassen; Panzer werden zum günstigsten Modell der Nation in der ersten Epoche.
 const START_ARMY = ['inf', 'inf', 'inf', 'recon', 'tank', 'at', 'art', 'truck'];
 
 class Game {
@@ -34,6 +35,11 @@ class Game {
   stats(u) { return unitStats(this.players[u.owner].nation, u.type); }
   unitCost(player, type) { return unitStats(this.players[player].nation, type).cost; }
   nationOf(player) { return NATIONS[this.players[player].nation]; }
+
+  // Aktuelle Epoche; bestimmt, welche Modelle gebaut werden können (für beide Seiten gleich).
+  get era() { return eraOfTurn(this.turn); }
+  nextEra() { return ERAS.find(e => e.fromTurn > this.turn) || null; }
+  buildable(player) { return buildableTypes(this.players[player].nation, this.era.key); }
 
   incomeOf(player) {
     let sum = 0;
@@ -422,6 +428,7 @@ class Game {
 
   buy(type, tile) {
     const p = this.players[this.current];
+    if (!this.buildable(this.current).includes(type)) return null;
     const cost = this.unitCost(this.current, type);
     if (tile.owner !== this.current || !TERRAIN[tile.terrain].capturable) return null;
     if (this.unitAt(tile.q, tile.r) || p.funds < cost) return null;
@@ -448,6 +455,9 @@ class Game {
     this.version++;
     if (this.current === 0) this.turn++;
     if (this.turn > MAX_TURNS) { this.decideByPoints(); return; }
+    if (this.current === 0 && this.era.fromTurn === this.turn && this.turn > 1) {
+      this.addLog(`Neue Epoche ${this.era.name}: Neue Panzer und Flugzeuge können gebaut werden.`, -1);
+    }
     this.startTurn();
   }
 
@@ -518,8 +528,11 @@ class Game {
     const nearby = [...this.map.tiles.values()]
       .filter(t => !TERRAIN[t.terrain].capturable)
       .sort((a, b) => hexDistance(a.q, a.r, hq.q, hq.r) - hexDistance(b.q, b.r, hq.q, hq.r) || a.row - b.row || a.col - b.col);
-    for (const type of START_ARMY) {
-      const mt = UNIT_TYPES[type].moveType;
+    const nation = this.players[player].nation;
+    for (const cls of START_ARMY) {
+      const type = startTypeFor(nation, cls);
+      if (!type) continue;
+      const mt = unitStats(nation, type).moveType;
       const spot = nearby.find(t => TERRAIN[t.terrain].cost[mt] < IMPASSABLE && !this.unitAt(t.q, t.r));
       if (spot) this.spawn(type, player, spot.q, spot.r);
     }

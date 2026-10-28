@@ -1,7 +1,10 @@
 // Einfache, gierige KI: greift an, wenn es sich lohnt, erobert Städte, rückt sonst vor.
 
 const AI_DELAY = 260;
-const AI_UNIT_ORDER = { recon: 0, art: 1, hflak: 1, air: 2, heavy: 3, tank: 3, lflak: 4, at: 5, truck: 5.5, halftrack: 5.5, inf: 6 };
+const AI_UNIT_ORDER = {
+  recon: 0, art: 1, hflak: 1, fighter: 1.5, attack: 2, heavy: 3, tank: 3, td: 3, light: 3.5,
+  lflak: 4, spaa: 4, at: 5, truck: 5.5, halftrack: 5.5, inf: 6,
+};
 
 function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
@@ -253,44 +256,59 @@ async function aiActUnit(game, view, u) {
   }
 }
 
+// Kauft nach Bedarf je Klasse; innerhalb einer Klasse werden bessere (teurere) Modelle
+// der aktuellen Epoche bevorzugt, sofern bezahlbar.
 function aiBuy(game) {
   const me = game.current;
   const p = game.players[me];
   const enemies = game.visibleEnemies(me);
   const mine = game.units.filter(u => u.owner === me);
   const count = (list, pred) => list.filter(pred).length;
+  const cls = u => unitClass(u.type);
   const enemyArmor = count(enemies, u => game.stats(u).armor >= 1);
   const enemyAir = count(enemies, u => game.stats(u).isAir);
   const spots = game.productionTiles(me).sort((a, b) => (b.terrain === 'hq') - (a.terrain === 'hq'));
+  const buildable = game.buildable(me);
 
   for (const tile of spots) {
-    const myInf = count(mine, u => unitClass(u.type) === 'inf');
-    const myArt = count(mine, u => unitClass(u.type) === 'art');
-    const myAa = count(mine, u => unitClass(u.type) === 'lflak' || unitClass(u.type) === 'hflak');
-    const myRecon = count(mine, u => unitClass(u.type) === 'recon');
+    const myInf = count(mine, u => cls(u) === 'inf');
+    const myArt = count(mine, u => cls(u) === 'art');
+    const myAa = count(mine, u => game.stats(u).aa);
+    const myRecon = count(mine, u => cls(u) === 'recon');
+    const myFighters = count(mine, u => cls(u) === 'fighter');
     // Gezogene Geschütze brauchen Fahrzeuge (auch die schon verladenen zählen).
     const towed = count(mine, u => game.stats(u).towed) + count(mine, u => u.cargo && game.stats(u.cargo).towed);
     const transports = count(mine, u => game.stats(u).transport);
     const needTransport = towed - transports;
-    const weights = {
+    const classWeights = {
       inf: 2 + (myInf < 4 ? 4 : 0),
       recon: myRecon < 2 ? 2.5 : 0.5,
+      light: 1,
       tank: 3,
       heavy: p.funds >= 900 ? 3 : 1,
-      at: 1 + enemyArmor * 0.6,
+      td: 1 + enemyArmor * 0.4,
+      at: 1 + enemyArmor * 0.4,
       art: myArt < 3 ? 2 : 0.5,
-      lflak: Math.max(0.5, enemyAir * 1.5 - myAa),
-      hflak: Math.max(0.5, enemyAir * 1.5 + enemyArmor * 0.5 - myAa),
-      air: 1.5,
+      lflak: Math.max(0.5, enemyAir * 1.2 - myAa),
+      hflak: Math.max(0.5, enemyAir * 1.2 + enemyArmor * 0.4 - myAa),
+      spaa: Math.max(0.3, enemyAir * 1.2 - myAa),
+      fighter: Math.max(0.3, 0.8 + enemyAir * 1.2 - myFighters * 0.5),
+      attack: 1.5,
       truck: needTransport > 0 ? 3 * needTransport : 0.3,
       halftrack: needTransport > 0 ? 2 * needTransport : 0.2,
     };
-    const options = UNIT_ORDER.filter(t => game.unitCost(me, t) <= p.funds && weights[t] > 0);
-    if (!options.length) break;
-    const total = options.reduce((s, t) => s + weights[t], 0);
+    const affordable = buildable.filter(t => game.unitCost(me, t) <= p.funds && (classWeights[unitClass(t)] || 0) > 0);
+    if (!affordable.length) break;
+    const weights = new Map();
+    for (const c of new Set(affordable.map(unitClass))) {
+      const list = affordable.filter(t => unitClass(t) === c);
+      const sum = list.reduce((s, t) => s + game.unitCost(me, t), 0);
+      for (const t of list) weights.set(t, classWeights[c] * game.unitCost(me, t) / sum);
+    }
+    const total = [...weights.values()].reduce((s, w) => s + w, 0);
     let roll = game.rng() * total;
-    let pick = options[0];
-    for (const t of options) { roll -= weights[t]; if (roll <= 0) { pick = t; break; } }
+    let pick = affordable[0];
+    for (const [t, w] of weights) { roll -= w; if (roll <= 0) { pick = t; break; } }
     const u = game.buy(pick, tile);
     if (u) mine.push(u);
   }

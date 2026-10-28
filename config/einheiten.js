@@ -1,36 +1,29 @@
 // ============================================================================
-//  Hexfront 39–45 – Einheiten-Konfiguration
+//  Hexfront 39–45 – Einheiten-Konfiguration (Klassen)
 // ============================================================================
 //
-//  Hier stehen die Grundwerte aller Einheitentypen. Werte ändern, Datei
+//  Hier stehen die Einheitenklassen mit ihren Grundwerten. Werte ändern, Datei
 //  speichern, Spiel im Browser neu laden (bei Bedarf Cmd+Shift+R) – fertig.
 //  Ein laufendes Spiel übernimmt die Änderungen erst nach dem Neuladen.
 //
-//  Die Abweichungen der Nationen (z. B. Tiger +2 Angriff, T-34 +1 Bewegung)
-//  kommen zusätzlich oben drauf; sie stehen in config/nationen.js.
-//
-//  Aufbau: Jeder Eintrag ist ein Modell (Schlüssel, z. B. tank) und gehört zu
-//  einer generischen Einheitenklasse (class). Die Klasse bestimmt NATO-Symbol,
-//  Silhouette und KI-Verhalten; das Modell bestimmt die Werte. Vorbereitet für
-//  später: weitere Modelle derselben Klasse mit eigenen Werten, z. B.
-//  pz4 und panther (class: 'tank') oder art75, art105, art150 (class: 'art'),
-//  auch je Nation.
+//  Zwei Arten von Klassen:
+//  - Allgemeine Klassen (Infanterie, Aufklärung, LKW, Halbkette, Pak,
+//    Artillerie, Flak) sind direkt baubar. Jede Nation gibt ihnen nur einen
+//    eigenen Namen und kleine Abweichungen (config/nationen.js).
+//  - Modellklassen (modelsOnly: true – Panzer, Jagdpanzer, Flakpanzer,
+//    Flugzeuge) sind nicht direkt baubar. Gebaut werden die konkreten Modelle
+//    aus config/modelle.js (z. B. Panzer IV, T-34/85, P-51D). Die Werte hier
+//    gelten für ein Modell nur, wenn es selbst keinen Wert angibt.
 //
 //  Regeln für Änderungen:
-//  - Die Schlüssel (inf, recon, tank, …) nicht umbenennen, löschen oder neue
-//    hinzufügen – weitere Modelle werden erst in einem späteren Schritt
-//    freigeschaltet.
+//  - Die Schlüssel (inf, recon, tank, …) nicht umbenennen oder löschen – sie
+//    bestimmen NATO-Symbol, Silhouette und KI-Verhalten.
 //  - Komma am Zeilenende nicht vergessen. Bei einem Tippfehler zeigt das Spiel
 //    beim Start eine Fehlermeldung mit der betroffenen Stelle.
 //
 //  Attribute:
-//    class         Einheitenklasse (generischer Schlüssel):
-//                    inf (Infanterie), recon (Aufklärung), truck (LKW),
-//                    halftrack (Halbkettenfahrzeug), tank (mittlerer Panzer),
-//                    heavy (schwerer Panzer), at (Panzerabwehr),
-//                    art (Artillerie), lflak (leichte Flak),
-//                    hflak (schwere Flak), air (Flugzeug)
-//    label         Typbezeichnung in der Anzeige
+//    class         Einheitenklasse, hier immer gleich dem Schlüssel
+//    label         Klassenbezeichnung in der Anzeige
 //    moveType      Fortbewegungsart: 'foot' (zu Fuß), 'wheel' (Räder),
 //                  'track' (Ketten/Halbketten), 'air' (Luft). Bestimmt die
 //                  Geländekosten. Sumpf ist nur für 'foot' passierbar.
@@ -44,7 +37,8 @@
 //                  Mischt soft/hard des Angreifers; Panzer erhalten nur halbe
 //                  Geländedeckung.
 //    towed         gezogen (true) oder selbstfahrend (false). Gezogene Einheiten
-//                  bewegen sich nur mit einem Transportfahrzeug (move: 0).
+//                  können von einem Transportfahrzeug geladen werden; mit
+//                  move: 0 bewegen sie sich nur so.
 //    fire          Feuerart:
 //                  'direct'   direktes Feuer – braucht freies Schussfeld: Auf den
 //                             Feldern zwischen Schütze und Ziel darf keine
@@ -54,12 +48,12 @@
 //                             eigene oder gegnerische Einheiten und Gebirge hinweg.
 //    range         Feuerentfernung [min, max] in Feldern, gezählt vom Feld des
 //                  Schützen bis zum Feld des Ziels: 1 = Nachbarfeld (kein Feld
-//                  dazwischen), 3 = zwei Felder dazwischen. Beispiel [2, 5]:
-//                  nicht auf Nachbarfelder, höchstens 4 Felder dazwischen.
+//                  dazwischen), 3 = zwei Felder dazwischen.
 //    vision        Sichtweite in Feldern (Nebel des Krieges)
-//    cost          Kaufpreis (vor Nationsrabatt/-aufschlag)
+//    cost          Kaufpreis
 //
 //  Weitere Schalter (true / false, fehlend = false):
+//    modelsOnly    nur über Modelle aus config/modelle.js baubar
 //    capture       kann Städte und HQ erobern
 //    spotter       sieht in Wälder hinein (bis zur vollen Sichtweite)
 //    aa            Flak: volle Wirkung gegen Flugzeuge
@@ -74,28 +68,6 @@
 // ============================================================================
 
 const UNIT_CONFIG = {
-
-  truck: {
-    class: 'truck',
-    label: 'LKW',
-    moveType: 'wheel', move: 6,
-    soft: 0, hard: 0, air: 0,
-    def: 2, armor: 0,
-    towed: false, fire: 'direct', range: [1, 1],
-    vision: 2, cost: 60,
-    transport: true,
-  },
-
-  halftrack: {
-    class: 'halftrack',
-    label: 'Halbkettenfahrzeug',
-    moveType: 'track', move: 5,
-    soft: 3, hard: 1, air: 1,
-    def: 3, armor: 0.5,
-    towed: false, fire: 'direct', range: [1, 1],
-    vision: 2, cost: 120,
-    transport: true,
-  },
 
   inf: {
     class: 'inf',
@@ -119,14 +91,48 @@ const UNIT_CONFIG = {
     spotter: true,
   },
 
+  truck: {
+    class: 'truck',
+    label: 'LKW',
+    moveType: 'wheel', move: 6,
+    soft: 0, hard: 0, air: 0,
+    def: 2, armor: 0,
+    towed: false, fire: 'direct', range: [1, 1],
+    vision: 2, cost: 60,
+    transport: true,
+  },
+
+  halftrack: {
+    class: 'halftrack',
+    label: 'Halbkettenfahrzeug',
+    moveType: 'track', move: 5,
+    soft: 3, hard: 1, air: 1,
+    def: 3, armor: 0.5,
+    towed: false, fire: 'direct', range: [1, 1],
+    vision: 2, cost: 120,
+    transport: true,
+  },
+
+  light: {
+    class: 'light',
+    label: 'Leichter Panzer',
+    moveType: 'track', move: 6,
+    soft: 3, hard: 4, air: 1,
+    def: 4, armor: 1,
+    towed: false, fire: 'direct', range: [1, 1],
+    vision: 2, cost: 180,
+    modelsOnly: true,
+  },
+
   tank: {
     class: 'tank',
-    label: 'Panzer',
+    label: 'Mittlerer Panzer',
     moveType: 'track', move: 5,
     soft: 4, hard: 7, air: 1,
     def: 7, armor: 1,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 300,
+    modelsOnly: true,
   },
 
   heavy: {
@@ -137,6 +143,18 @@ const UNIT_CONFIG = {
     def: 10, armor: 1,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 500,
+    modelsOnly: true,
+  },
+
+  td: {
+    class: 'td',
+    label: 'Jagdpanzer',
+    moveType: 'track', move: 4,
+    soft: 2, hard: 12, air: 0,
+    def: 7, armor: 1,
+    towed: false, fire: 'direct', range: [1, 2],
+    vision: 2, cost: 350,
+    modelsOnly: true,
   },
 
   at: {
@@ -183,15 +201,37 @@ const UNIT_CONFIG = {
     aa: true, noMoveAndFire: true,
   },
 
-  air: {
-    class: 'air',
-    label: 'Jagdbomber',
-    moveType: 'air', move: 8,
-    soft: 7, hard: 6, air: 6,
+  spaa: {
+    class: 'spaa',
+    label: 'Flakpanzer',
+    moveType: 'track', move: 5,
+    soft: 8, hard: 2, air: 10,
+    def: 4, armor: 0.5,
+    towed: false, fire: 'direct', range: [1, 2],
+    vision: 2, cost: 250,
+    aa: true, modelsOnly: true,
+  },
+
+  fighter: {
+    class: 'fighter',
+    label: 'Jagdflugzeug',
+    moveType: 'air', move: 9,
+    soft: 3, hard: 1, air: 9,
     def: 4, armor: 0,
     towed: false, fire: 'direct', range: [1, 1],
-    vision: 3, cost: 400,
-    isAir: true, spotter: true,
+    vision: 3, cost: 320,
+    isAir: true, spotter: true, modelsOnly: true,
+  },
+
+  attack: {
+    class: 'attack',
+    label: 'Schlachtflugzeug',
+    moveType: 'air', move: 8,
+    soft: 7, hard: 6, air: 4,
+    def: 4, armor: 0,
+    towed: false, fire: 'direct', range: [1, 1],
+    vision: 3, cost: 380,
+    isAir: true, spotter: true, modelsOnly: true,
   },
 
 };
