@@ -106,6 +106,10 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .buy-item:hover:not(:disabled) { border-color: var(--accent); }
 .buy-item:disabled { opacity: .4; cursor: not-allowed; }
+.buy-item.expensive { opacity: .5; }
+.buy-item.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.buy-detail .actions { display: flex; gap: 8px; margin-top: 10px; }
+.buy-detail .actions .btn { flex: 1; }
 .buy-item .n { font-weight: 600; font-size: 14px; }
 .buy-item .t { color: var(--muted); font-size: 12px; }
 .buy-item .c { font: 600 15px var(--font-head); color: var(--accent); }

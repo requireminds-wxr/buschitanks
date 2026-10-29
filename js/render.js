@@ -287,13 +287,15 @@ function loadSprite(key) {
 }
 if (typeof UNIT_SPRITES !== 'undefined') Object.keys(UNIT_SPRITES).forEach(loadSprite);
 
-// Modelle ohne eigene Grafik nutzen die Grafik ihrer Klasse (bzw. einer verwandten).
+// Modelle ohne eigene Grafik nutzen die Grafik ihrer Klasse; fehlt auch die,
+// die einer verwandten Klasse (Jagdpanzer → Panzer, Jäger → Flugzeug).
 const SPRITE_CLASS = { light: 'tank', td: 'tank', spaa: 'tank', fighter: 'air', attack: 'air' };
 function spriteKey(nationKey, type) {
   if (hasSprite(`${nationKey}.${type}`)) return `${nationKey}.${type}`;
   const m = MODELS[type];
+  if (m && m.sprite) return `${nationKey}.${m.sprite}`;
   const cls = unitClass(type);
-  return `${nationKey}.${(m && m.sprite) || SPRITE_CLASS[cls] || cls}`;
+  return hasSprite(`${nationKey}.${cls}`) ? `${nationKey}.${cls}` : `${nationKey}.${SPRITE_CLASS[cls] || cls}`;
 }
 function hasSprite(key) { return typeof UNIT_SPRITES !== 'undefined' && !!UNIT_SPRITES[key]; }
 

@@ -58,15 +58,15 @@ const STYLE = [
 
 function buildPrompt(cfg, nation, type) {
   const n = cfg.NATION_CONFIG[nation], u = cfg.UNIT_CONFIG[type];
-  const name = n.units[type];
+  const name = n.units[type] ?? u.label;
   const desc = UNIT_PROMPTS[`${nation}.${type}`] ?? `the ${name} (${u.label}) of the ${n.short} army in World War II`;
   const mods = n.mods[type] ?? {};
   const towed = mods.towed ?? u.towed;
   const parts = [`Subject: ${desc}.`];
   if (type === 'inf') parts.push(LAYOUT.inf);
-  else if (type === 'air') parts.push(LAYOUT.air);
+  else if (type === 'air' || u.isAir) parts.push(LAYOUT.air);
   else parts.push(towed || type === 'at' ? LAYOUT.gun : LAYOUT.vehicle);
-  if (['tank', 'heavy', 'at', 'art', 'lflak', 'hflak'].includes(type) || (type === 'recon' && u.hard + (mods.hard ?? 0) >= 4)) parts.push(LAYOUT.barrel);
+  if (['tank', 'heavy', 'td', 'at', 'art', 'lflak', 'hflak'].includes(type) || (type === 'recon' && u.hard + (mods.hard ?? 0) >= 4)) parts.push(LAYOUT.barrel);
   parts.push(STYLE);
   return parts.join(' ');
 }
@@ -87,7 +87,8 @@ const cfg = loadConfig();
 const jobs = [];
 for (const nation of Object.keys(cfg.NATION_CONFIG))
   for (const type of Object.keys(cfg.UNIT_CONFIG))
-    if (!only.length || only.includes(`${nation}.${type}`)) jobs.push([nation, type]);
+    if ((!only.length || only.includes(`${nation}.${type}`))
+      && (cfg.NATION_CONFIG[nation].units[type] || UNIT_PROMPTS[`${nation}.${type}`])) jobs.push([nation, type]);
 
 const outDir = path.join(ROOT, 'tools/raw', model);
 fs.mkdirSync(outDir, { recursive: true });

@@ -237,8 +237,11 @@ class Game {
   // In einen Hinterhalt geratene Einheiten kämpfen bis zum Ende des gegnerischen Zuges geschwächt.
   isSurprised(u) { return u.surprisedUntil >= this.halfTurn; }
 
+  // Panzer (noAirAttack) greifen keine Flugzeuge an; erwidern dürfen sie (canCounter).
+  canTarget(u, e) { return !(this.stats(u).noAirAttack && this.stats(e).isAir); }
+
   targetsFrom(u, q, r) {
-    return this.units.filter(e => e.owner !== u.owner && this.inRange(u, q, r, e) && this.attackValue(u, e) > 0 && this.canSee(u.owner, e));
+    return this.units.filter(e => e.owner !== u.owner && this.canTarget(u, e) && this.inRange(u, q, r, e) && this.attackValue(u, e) > 0 && this.canSee(u.owner, e));
   }
 
   attackTargets(u) {
@@ -253,9 +256,19 @@ class Game {
     return s.armor >= 1 ? Math.floor(t.def / 2) : t.def;
   }
 
-  // Durchschnittsschaden von att gegen def; defPos erlaubt hypothetische Stellungen.
-  baseDamage(att, def, attHp, defPos, steps) {
-    const a = this.attackValue(att, def, steps);
+  // Schadensfaktor nach Entfernung: je Feld über 1 hinaus weniger, gemindert durch precision.
+  // Luftkampf und Angriffe von/auf Flugzeuge sind davon ausgenommen.
+  rangeMul(att, def, dist) {
+    const a = this.stats(att);
+    if (dist <= 1 || a.isAir || this.stats(def).isAir) return 1;
+    const falloff = a.fire === 'indirect' ? RANGE_FALLOFF_INDIRECT : RANGE_FALLOFF;
+    return Math.max(RANGE_MUL_MIN, 1 - falloff * (dist - 1) * (1 - (a.precision || 0)));
+  }
+
+  // Durchschnittsschaden von att gegen def; defPos erlaubt hypothetische Stellungen,
+  // dist die Entfernung (Standard: aktuelle Stellungen).
+  baseDamage(att, def, attHp, defPos, steps, dist = hexDistance(att.q, att.r, def.q, def.r)) {
+    const a = this.attackValue(att, def, steps) * this.rangeMul(att, def, dist);
     if (a <= 0) return 0;
     const [q, r] = defPos || [def.q, def.r];
     const defense = this.stats(def).def + this.terrainDefense(def, q, r);
@@ -272,13 +285,14 @@ class Game {
   // steps: hypothetische Zugweite des Angreifers (für die KI), sonst die tatsächliche.
   forecast(att, def, fromPos, steps) {
     const [fq, fr] = fromPos || [att.q, att.r];
-    const base = this.baseDamage(att, def, att.hp, null, steps);
+    const dist = hexDistance(fq, fr, def.q, def.r);
+    const base = this.baseDamage(att, def, att.hp, null, steps, dist);
     const roundDmg = x => (base > 0 ? Math.max(1, Math.round(x)) : 0);
     const min = roundDmg(base * 0.85), max = roundDmg(base * 1.15), avg = roundDmg(base);
     const defHpAfter = Math.max(0, def.hp - avg);
     let cmin = 0, cmax = 0, cavg = 0;
     if (defHpAfter > 0 && this.canCounter(def, att, fq, fr)) {
-      const cb = this.baseDamage(def, att, defHpAfter, [fq, fr]);
+      const cb = this.baseDamage(def, att, defHpAfter, [fq, fr], undefined, dist);
       const rc = x => (cb > 0 ? Math.max(1, Math.round(x)) : 0);
       cmin = rc(cb * 0.85); cmax = rc(cb * 1.15); cavg = rc(cb);
     }
@@ -342,13 +356,13 @@ class Game {
   }
 
   attack(att, def) {
-    if (!this.canAttackNow(att) || !this.inRange(att, att.q, att.r, def)) return null;
+    if (!this.canAttackNow(att) || !this.canTarget(att, def) || !this.inRange(att, att.q, att.r, def)) return null;
     const as = this.stats(att), ds = this.stats(def);
     const dmg = this.rollDamage(att, def, att.hp);
     def.hp = Math.max(0, def.hp - dmg);
     let counter = 0;
     if (def.hp > 0 && this.canCounter(def, att, att.q, att.r)) {
-      counter = this.rollDamage(def, att, def.hp, [def.q, def.r]);
+      counter = this.rollDamage(def, att, def.hp, [att.q, att.r]);
       att.hp = Math.max(0, att.hp - counter);
     }
     att.attacked = true;

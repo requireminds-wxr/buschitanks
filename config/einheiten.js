@@ -8,9 +8,9 @@
 //
 //  Zwei Arten von Klassen:
 //  - Allgemeine Klassen (Infanterie, Aufklärung, LKW, Halbkette, Pak,
-//    Artillerie, schwere Flak) sind direkt baubar. Jede Nation gibt ihnen nur einen
+//    schwere Flak) sind direkt baubar. Jede Nation gibt ihnen nur einen
 //    eigenen Namen und kleine Abweichungen (config/nationen.js).
-//  - Modellklassen (modelsOnly: true – Panzer, Jagdpanzer, leichte Flak auf
+//  - Modellklassen (modelsOnly: true – Panzer, Jagdpanzer, Artillerie, leichte Flak auf
 //    LKW/Halbkette, Flakpanzer, Flugzeuge) sind nicht direkt baubar. Gebaut werden die konkreten Modelle
 //    aus config/modelle.js (z. B. Panzer IV, T-34/85, P-51D). Die Werte hier
 //    gelten für ein Modell nur, wenn es selbst keinen Wert angibt.
@@ -59,6 +59,8 @@
 //    capture       kann Städte und HQ erobern
 //    spotter       sieht in Wälder hinein (bis zur vollen Sichtweite)
 //    aa            Flak: volle Wirkung gegen Flugzeuge
+//    noAirAttack   greift Flugzeuge nicht an, wehrt sich gegen Luftangriffe
+//                  nur schwach (mit air, z. B. Bord-MG)
 //    isAir         Flugzeug: ignoriert Gelände und Kontrollzonen
 //    noCounter     schlägt nicht zurück und wird nicht erwidert
 //    noMoveAndFire darf nicht im selben Zug ziehen und feuern
@@ -123,7 +125,7 @@ const UNIT_CONFIG = {
     def: 4, armor: 1,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 180,
-    modelsOnly: true,
+    noAirAttack: true, modelsOnly: true,
   },
 
   tank: {
@@ -134,7 +136,7 @@ const UNIT_CONFIG = {
     def: 7, armor: 1,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 300,
-    modelsOnly: true,
+    noAirAttack: true, modelsOnly: true,
   },
 
   heavy: {
@@ -145,7 +147,7 @@ const UNIT_CONFIG = {
     def: 10, armor: 1,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 500,
-    modelsOnly: true,
+    noAirAttack: true, modelsOnly: true,
   },
 
   td: {
@@ -156,13 +158,13 @@ const UNIT_CONFIG = {
     def: 7, armor: 1,
     towed: false, fire: 'direct', range: [1, 2],
     vision: 2, cost: 350,
-    modelsOnly: true,
+    noAirAttack: true, modelsOnly: true,
   },
 
   at: {
     class: 'at',
     label: 'Panzerabwehr',
-    moveType: 'foot', move: 3,
+    moveType: 'foot', move: 0,
     soft: 2, hard: 12, air: 0,
     def: 5, armor: 0,
     towed: true, fire: 'direct', range: [1, 3],
@@ -173,12 +175,12 @@ const UNIT_CONFIG = {
   art: {
     class: 'art',
     label: 'Artillerie',
-    moveType: 'wheel', move: 4,
+    moveType: 'wheel', move: 0,
     soft: 12, hard: 4, air: 0,
     def: 2, armor: 0,
-    towed: false, fire: 'indirect', range: [2, 3],
+    towed: true, fire: 'indirect', range: [1, 4],
     vision: 1, cost: 250,
-    noCounter: true, noMoveAndFire: true,
+    noCounter: true, noMoveAndFire: true, modelsOnly: true,
   },
 
   lflak: {
@@ -195,10 +197,10 @@ const UNIT_CONFIG = {
   hflak: {
     class: 'hflak',
     label: 'Schwere Flak',
-    moveType: 'wheel', move: 2,
+    moveType: 'wheel', move: 0,
     soft: 1, hard: 10, air: 12,
     def: 4, armor: 0,
-    towed: false, fire: 'direct', range: [2, 3],
+    towed: true, fire: 'direct', range: [2, 3],
     vision: 2, cost: 350,
     aa: true, noMoveAndFire: true,
   },
@@ -218,7 +220,7 @@ const UNIT_CONFIG = {
     class: 'fighter',
     label: 'Jagdflugzeug',
     moveType: 'air', move: 9,
-    soft: 3, hard: 1, air: 9,
+    soft: 6, hard: 1, air: 9,
     def: 4, armor: 0,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 3, cost: 320,
