@@ -182,7 +182,8 @@ function loadModels() {
     if (!Array.isArray(m.eras) || !m.eras.length || !m.eras.every(e => eraKeys.includes(e))) {
       CONFIG_ERRORS.push(`${where}: eras muss eine Liste aus ${eraKeys.map(e => `'${e}'`).join(', ')} sein.`);
     }
-    if ('sprite' in m && !UNIT_TYPES[m.sprite]) CONFIG_ERRORS.push(`${where}: sprite muss eine Klasse sein, z. B. 'tank' oder 'halftrack'.`);
+    // Grafiken (assets/units) laden erst nach den Daten: hier nur die Form prüfen.
+    if ('sprite' in m && !(UNIT_TYPES[m.sprite] || /^[a-z]+_[a-z0-9_]+$/.test(m.sprite))) CONFIG_ERRORS.push(`${where}: sprite muss eine Klasse sein (z. B. 'tank', 'halftrack') oder eine Zusatzgrafik wie 'lflak_lkw'.`);
     if ('moveType' in m && !MOVE_TYPE_LABEL[m.moveType]) CONFIG_ERRORS.push(`${where}: moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`);
     if ('fire' in m && !FIRE_TYPE_LABEL[m.fire]) CONFIG_ERRORS.push(`${where}: fire muss 'direct' oder 'indirect' sein.`);
     for (const f of UNIT_NUMBER_FIELDS) {

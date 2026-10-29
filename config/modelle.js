@@ -12,17 +12,19 @@
 //    name      Anzeige, z. B. '1942–43'
 //    fromTurn  ab dieser Runde gilt die Epoche (die erste muss 1 sein)
 //
-//  MODELLE (MODEL_CONFIG): konkrete Panzer, Jagdpanzer, Flakpanzer und
-//  Flugzeuge je Nation. Schlüssel frei wählbar, aber eindeutig (z. B. de_panther).
+//  MODELLE (MODEL_CONFIG): konkrete Panzer, Jagdpanzer, mobile Flak,
+//  Flakpanzer und Flugzeuge je Nation. Schlüssel frei wählbar, aber eindeutig (z. B. de_panther).
 //    nation    'de', 'it', 'jp', 'us', 'uk' oder 'su'
 //    class     Einheitenklasse aus config/einheiten.js:
 //                light (leichter Panzer), tank (mittlerer Panzer),
 //                heavy (schwerer Panzer), td (Jagdpanzer/Sturmgeschütz),
+//                lflak (leichte Flak auf LKW/Halbkette),
 //                spaa (Flakpanzer), fighter (Jagdflugzeug),
 //                attack (Schlachtflugzeug/Sturzkampfbomber)
 //    name      Anzeigename
 //    eras      Epochen, in denen das Modell gebaut werden kann, z. B. ['mid', 'late']
-//    sprite    optional: Grafik einer anderen Klasse verwenden, z. B. 'halftrack'
+//    sprite    optional: andere Grafik verwenden, z. B. 'halftrack', oder
+//              'lflak_lkw' / 'lflak_hk' (Flak der Nation auf LKW bzw. Halbkette)
 //    Werte     move, soft, hard, air, def, armor, range, vision, cost, moveType,
 //              fire, towed und alle Schalter wie in config/einheiten.js. Fehlt
 //              ein Wert, gilt der Wert der Klasse.
@@ -69,6 +71,14 @@ const MODEL_CONFIG = {
     move: 4, soft: 5, hard: 17, air: 0, def: 11, armor: 1, range: [1, 3], cost: 580 },
   de_wirbelwind: { nation: 'de', class: 'spaa', name: 'Wirbelwind', eras: ['late'],
     move: 5, soft: 8, hard: 2, air: 10, def: 5, armor: 1, range: [1, 2], cost: 360 },
+  de_blitz38: { nation: 'de', class: 'lflak', name: 'Opel Blitz mit 2-cm-Flak 38', eras: ['early', 'mid'], sprite: 'lflak_lkw',
+    move: 7, soft: 8, hard: 2, air: 8, def: 2, armor: 0, range: [1, 2], cost: 180 },
+  de_sdkfz104: { nation: 'de', class: 'lflak', name: 'Sd.Kfz. 10/4 (2 cm)', eras: ['early', 'mid'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 8, hard: 2, air: 8, def: 3, armor: 0.5, range: [1, 2], cost: 180 },
+  de_sdkfz71: { nation: 'de', class: 'lflak', name: 'Sd.Kfz. 7/1 (2-cm-Vierling)', eras: ['mid', 'late'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 12, hard: 2, air: 12, def: 3, armor: 0.5, range: [1, 2], cost: 220 },
+  de_sdkfz72: { nation: 'de', class: 'lflak', name: 'Sd.Kfz. 7/2 (3,7 cm)', eras: ['late'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 9, hard: 3, air: 11, def: 3, armor: 0.5, range: [1, 2], cost: 200 },
   de_bf109e: { nation: 'de', class: 'fighter', name: 'Bf 109 E', eras: ['early'],
     move: 9, soft: 2, hard: 1, air: 8, def: 4, cost: 290 },
   de_ju87b: { nation: 'de', class: 'attack', name: 'Ju 87 B Stuka', eras: ['early'],
@@ -101,6 +111,8 @@ const MODEL_CONFIG = {
     move: 4, soft: 5, hard: 7, air: 1, def: 6, armor: 1, range: [1, 2], cost: 290 },
   it_sem7546: { nation: 'it', class: 'td', name: 'Semovente 75/46', eras: ['late'],
     move: 4, soft: 4, hard: 9, air: 0, def: 7, armor: 1, range: [1, 2], cost: 320 },
+  it_spa2065: { nation: 'it', class: 'lflak', name: 'Autocannone SPA mit Breda 20/65', eras: ['early', 'mid', 'late'], sprite: 'lflak_lkw',
+    move: 7, soft: 8, hard: 2, air: 8, def: 2, armor: 0, range: [1, 2], cost: 180 },
   it_cr42: { nation: 'it', class: 'fighter', name: 'Fiat CR.42', eras: ['early'],
     move: 8, soft: 2, hard: 1, air: 5, def: 3, cost: 190 },
   it_g50: { nation: 'it', class: 'fighter', name: 'Fiat G.50', eras: ['early'],
@@ -127,6 +139,10 @@ const MODEL_CONFIG = {
     move: 5, soft: 5, hard: 7, air: 1, def: 5, armor: 1, range: [1, 2], cost: 320 },
   jp_honi: { nation: 'jp', class: 'td', name: 'Typ 1 Ho-Ni', eras: ['late'],
     move: 4, soft: 5, hard: 7, air: 0, def: 3, armor: 1, range: [1, 2], cost: 260 },
+  jp_isuzu98: { nation: 'jp', class: 'lflak', name: 'Isuzu mit Typ-98-20-mm-Flak', eras: ['early', 'mid', 'late'], sprite: 'lflak_lkw',
+    move: 7, soft: 8, hard: 2, air: 8, def: 2, armor: 0, range: [1, 2], cost: 180 },
+  jp_type96: { nation: 'jp', class: 'lflak', name: 'LKW mit Typ-96-25-mm-Zwillingsflak', eras: ['mid', 'late'], sprite: 'lflak_lkw',
+    move: 7, soft: 9, hard: 2, air: 10, def: 2, armor: 0, range: [1, 2], cost: 190 },
   jp_a6m2: { nation: 'jp', class: 'fighter', name: 'A6M2 Zero', eras: ['early'],
     move: 11, soft: 2, hard: 1, air: 9, def: 2, cost: 310 },
   jp_d3a: { nation: 'jp', class: 'attack', name: 'D3A Val', eras: ['early', 'mid'],
@@ -149,14 +165,20 @@ const MODEL_CONFIG = {
     move: 5, soft: 6, hard: 7, air: 1, def: 8, armor: 1, range: [1, 2], cost: 340 },
   us_m10: { nation: 'us', class: 'td', name: 'M10 Wolverine', eras: ['mid'],
     move: 5, soft: 3, hard: 10, air: 0, def: 7, armor: 1, range: [1, 2], cost: 360 },
-  us_m16: { nation: 'us', class: 'spaa', name: 'M16', eras: ['mid', 'late'], sprite: 'halftrack',
-    move: 5, soft: 8, hard: 1, air: 9, def: 3, armor: 0.5, range: [1, 2], cost: 270 },
+  us_m19: { nation: 'us', class: 'spaa', name: 'M19 (40-mm-Zwilling)', eras: ['late'],
+    move: 5, soft: 9, hard: 3, air: 11, def: 3, armor: 0.5, range: [1, 2], cost: 330 },
   us_m4a3e8: { nation: 'us', class: 'tank', name: 'M4A3E8 Sherman (76 mm)', eras: ['late'],
     move: 5, soft: 5, hard: 10, air: 1, def: 8, armor: 1, range: [1, 2], cost: 380 },
   us_m26: { nation: 'us', class: 'heavy', name: 'M26 Pershing', eras: ['late'],
     move: 4, soft: 6, hard: 13, air: 1, def: 11, armor: 1, range: [1, 3], cost: 480 },
   us_m18: { nation: 'us', class: 'td', name: 'M18 Hellcat', eras: ['late'],
     move: 6, soft: 3, hard: 10, air: 0, def: 3, armor: 1, range: [1, 2], cost: 300 },
+  us_m13: { nation: 'us', class: 'lflak', name: 'M13 (MG-Zwilling 12,7 mm)', eras: ['early', 'mid'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 8, hard: 1, air: 7, def: 3, armor: 0.5, range: [1, 1], cost: 150 },
+  us_m15: { nation: 'us', class: 'lflak', name: 'M15 (37 mm + 2 × 12,7 mm)', eras: ['mid', 'late'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 10, hard: 3, air: 10, def: 3, armor: 0.5, range: [1, 2], cost: 190 },
+  us_m16: { nation: 'us', class: 'lflak', name: 'M16 (MG-Vierling 12,7 mm)', eras: ['mid', 'late'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 11, hard: 1, air: 11, def: 3, armor: 0.5, range: [1, 1], cost: 190 },
   us_p40: { nation: 'us', class: 'fighter', name: 'P-40 Warhawk', eras: ['early'],
     move: 9, soft: 4, hard: 2, air: 7, def: 5, cost: 340 },
   us_p38: { nation: 'us', class: 'fighter', name: 'P-38 Lightning', eras: ['mid'],
@@ -191,6 +213,10 @@ const MODEL_CONFIG = {
     move: 5, soft: 5, hard: 13, air: 1, def: 9, armor: 1, range: [1, 2], cost: 470 },
   uk_crusaderaa: { nation: 'uk', class: 'spaa', name: 'Crusader AA', eras: ['late'],
     move: 5, soft: 7, hard: 2, air: 9, def: 4, armor: 1, range: [1, 2], cost: 320 },
+  uk_portee: { nation: 'uk', class: 'lflak', name: 'Bofors-40-mm-Portee', eras: ['early'], sprite: 'lflak_lkw',
+    move: 7, soft: 9, hard: 3, air: 10, def: 2, armor: 0, range: [1, 2], cost: 190 },
+  uk_c9b: { nation: 'uk', class: 'lflak', name: 'Morris C9/B (Bofors 40 mm)', eras: ['mid', 'late'], sprite: 'lflak_lkw',
+    move: 7, soft: 9, hard: 3, air: 11, def: 2, armor: 0, range: [1, 2], cost: 200 },
   uk_hurricane: { nation: 'uk', class: 'fighter', name: 'Hurricane I', eras: ['early'],
     move: 9, soft: 2, hard: 1, air: 7, def: 4, cost: 270 },
   uk_spitfire1: { nation: 'uk', class: 'fighter', name: 'Spitfire I', eras: ['early'],
@@ -227,6 +253,12 @@ const MODEL_CONFIG = {
     move: 5, soft: 4, hard: 15, air: 0, def: 10, armor: 1, range: [1, 3], cost: 610 },
   su_zsu37: { nation: 'su', class: 'spaa', name: 'ZSU-37', eras: ['late'],
     move: 5, soft: 7, hard: 2, air: 9, def: 3, armor: 0.5, range: [1, 2], cost: 340 },
+  su_gaz4m: { nation: 'su', class: 'lflak', name: 'GAZ-AA mit 4M-Vierling (Maxim)', eras: ['early', 'mid'], sprite: 'lflak_lkw',
+    move: 7, soft: 9, hard: 0, air: 6, def: 2, armor: 0, range: [1, 1], cost: 140 },
+  su_zis61k: { nation: 'su', class: 'lflak', name: 'ZiS-5 mit 61-K (37 mm)', eras: ['mid', 'late'], sprite: 'lflak_lkw',
+    move: 7, soft: 9, hard: 3, air: 10, def: 2, armor: 0, range: [1, 2], cost: 190 },
+  su_m17: { nation: 'su', class: 'lflak', name: 'M17 (MG-Vierling 12,7 mm, Leih-Pacht)', eras: ['late'], sprite: 'lflak_hk',
+    moveType: 'track', move: 6, soft: 11, hard: 1, air: 11, def: 3, armor: 0.5, range: [1, 1], cost: 190 },
   su_i16: { nation: 'su', class: 'fighter', name: 'I-16', eras: ['early'],
     move: 9, soft: 2, hard: 1, air: 6, def: 3, cost: 250 },
   su_il2: { nation: 'su', class: 'attack', name: 'Il-2 Sturmowik', eras: ['early', 'mid'],

@@ -662,7 +662,7 @@ class View {
     const turn = this.face(att, dx - ax);
     const vsAir = this.game.stats(def).isAir;
     const dist = hexDistance(att.q, att.r, def.q, def.r);
-    const elev = { art: 0.2 + dist * 0.07, hflak: vsAir ? 0.75 : 0.05, lflak: vsAir ? 0.6 : 0.03 }[att.type] ?? (vsAir ? 0.3 : 0);
+    const elev = { art: 0.2 + dist * 0.07, hflak: vsAir ? 0.75 : 0.05, lflak: vsAir ? 0.6 : 0.03 }[unitClass(att.type)] ?? (vsAir ? 0.3 : 0);
     // Rohr heben nur abwarten, wenn sich auch sichtbar ein Rohr hebt.
     const sp = unitSprite(this.game.players[att.owner].nation, att.type);
     const aim = (turn ? 180 : 0) + (elev > 0.1 && sp?.barrel ? 260 : 0);
