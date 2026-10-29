@@ -1,5 +1,8 @@
 // Motivbeschreibungen je Einheit (Schlüssel: <nation>.<typ>) für
-// tools/generate-units.mjs. Fehlt ein Eintrag, wird aus dem Einheitennamen in
+// tools/generate-units.mjs. Modellklassen (td, fighter, attack) bekommen nur
+// mit eigenem Motiv eine Grafik; ohne nutzen sie die Grafik einer verwandten
+// Klasse (td → tank, fighter/attack → air, die je Nation schon Jäger oder
+// Schlachtflugzeug zeigt). Fehlt ein Eintrag, wird aus dem Einheitennamen in
 // config/nationen.js eine allgemeine Beschreibung gebaut.
 // Bildvorgabe für Einheiten mit Rohr. tools/process-units.mjs sucht nur in
 // Bildern, deren Prompt diesen Satz enthält, nach einem abtrennbaren Rohr.
@@ -18,6 +21,8 @@ export const UNIT_PROMPTS = {
   'de.lflak': 'German 2 cm Flak 38 light anti-aircraft gun on its low triangular ground platform, single slim barrel with a conical flash hider, small flat gun shield, gunner seat and ring sight, dark yellow paint',
   'de.hflak': 'German 8.8 cm Flak 36 anti-aircraft gun (the famous Acht-Acht) on its cruciform platform with outriggers lowered, very long slender barrel with recuperator cylinders above it, small gun shield, dark yellow paint',
   'de.air': 'German Junkers Ju 87 D Stuka dive bomber with inverted gull wings, fixed landing gear with streamlined spats, long glazed two-seat canopy, large radiator under the nose, a 500 kg bomb under the fuselage, dark green splinter camouflage on the upper surfaces and light blue underside',
+  'de.td': 'German Sturmgeschütz III Ausf. G assault gun: low turretless tracked hull with a boxy fixed superstructure, the long 7.5 cm StuK 40 L/48 gun with a cast Saukopf mantlet and double-baffle muzzle brake in the front plate, armour skirt plates (Schürzen) along the side, six small road wheels, dark yellow paint with olive green camouflage',
+  'de.fighter': 'German Messerschmitt Bf 109 G-6 fighter with a slim pointed inline-engine nose, bulges over the cowling machine guns, three-blade propeller, small framed canopy, grey-green camouflage on top and light blue underside',
 
   // --- Italien ---
   'it.inf': 'Italian Royal Army infantrymen of 1942 in grey-green wool uniforms with puttees, M33 steel helmets, leather ammunition pouches, Carcano M91 rifles, one carrying a Breda 30 light machine gun',
@@ -31,6 +36,8 @@ export const UNIT_PROMPTS = {
   'it.lflak': 'Italian Breda 20/65 mod. 35 light anti-aircraft gun on its low two-wheeled carriage lowered onto its legs, single barrel with a flash hider, small curved gun shield, grey-green paint',
   'it.hflak': 'Italian Cannone da 90/53 heavy anti-aircraft gun on its cruciform platform with outriggers lowered, very long slender barrel, small gun shield, grey-green paint',
   'it.air': 'Italian Fiat G.55 Centauro fighter with a slim pointed inline-engine nose, three-blade propeller, framed canopy, olive green upper surfaces with a light grey underside',
+  'it.td': 'Italian Semovente da 75/18 assault gun: low turretless tracked hull of the M13/40 with a riveted fixed superstructure, short 75/18 howitzer in a ball mount in the front plate, leaf-spring bogies with many small road wheels, sand-yellow paint with green and red-brown camouflage blotches',
+  'it.attack': 'Italian Junkers Ju 87 R Picchiatello dive bomber with inverted gull wings, fixed landing gear with spats, long glazed two-seat canopy, a bomb under the fuselage, sand-yellow upper surfaces with olive green blotches and light grey underside',
 
   // --- Japan ---
   'jp.inf': 'Imperial Japanese Army infantrymen in khaki Type 98 uniforms with puttees, Type 90 steel helmets covered with netting, leather ammunition pouches, Arisaka Type 99 rifles with long bayonets fixed, one carrying a Type 96 light machine gun',
@@ -44,6 +51,8 @@ export const UNIT_PROMPTS = {
   'jp.lflak': 'Japanese Type 98 20 mm anti-aircraft machine cannon lowered from its two-wheeled carriage onto three outrigger legs, single slim barrel with flash hider, no gun shield, olive-khaki paint',
   'jp.hflak': 'Japanese Type 88 75 mm anti-aircraft gun on its star-shaped platform with five outrigger legs, long barrel, olive-khaki paint',
   'jp.air': 'Japanese Mitsubishi A6M Zero fighter with a slender fuselage, radial engine with a black cowling, three-blade propeller, long framed greenhouse canopy, overall light grey-green finish',
+  'jp.td': 'Japanese Type 1 Ho-Ni I tank destroyer: Chi-Ha tracked chassis with an open-topped, three-sided armoured casemate carrying the 75 mm Type 90 field gun with a muzzle brake, bell-crank suspension with six road wheels, three-colour camouflage of brown, dark green and khaki',
+  'jp.attack': 'Japanese Aichi D3A Val carrier dive bomber with fixed landing gear in large streamlined spats, radial engine, long greenhouse two-seat canopy, elliptical wings, a bomb under the fuselage, dark green upper surfaces and light grey underside',
 
   // --- USA ---
   'us.inf': 'US Army GI infantrymen of 1944 in olive drab M1941 field jackets and trousers with canvas leggings, M1 steel helmets with netting, cartridge belts, M1 Garand rifles, one with a Thompson submachine gun and one carrying a Browning Automatic Rifle',
@@ -57,6 +66,8 @@ export const UNIT_PROMPTS = {
   'us.lflak': 'American M16 multiple gun motor carriage: an M3 half-track carrying a Maxson M45 turret with four .50 calibre machine guns in the open rear compartment, the four gun barrels pointing horizontally forward over the cab, olive drab paint',
   'us.hflak': 'American 90 mm M1 anti-aircraft gun on its four-wheeled mount with the outriggers lowered, long barrel, olive drab paint',
   'us.air': 'American Republic P-47D Thunderbolt fighter-bomber, late "bubbletop" version: a clear teardrop-shaped bubble canopy without frames behind the pilot and a cut-down rear fuselage spine, massive radial engine cowling, four-blade propeller, bare polished aluminium finish with an olive drab anti-glare panel in front of the cockpit, a 500 lb bomb under the fuselage',
+  'us.td': 'American M10 Wolverine tank destroyer: Sherman-based hull with sharply sloped welded armour, open-topped pentagonal turret with the long 3-inch gun and its counterweights at the turret rear, VVSS suspension with three bogie units per side, olive drab paint',
+  'us.fighter': 'American North American P-51D Mustang fighter with a slim inline-engine nose, four-blade propeller, clear bubble canopy, belly radiator scoop under the fuselage, bare polished aluminium finish with an olive drab anti-glare panel in front of the cockpit',
 
   // --- Großbritannien ---
   'uk.inf': 'British infantrymen of 1944 in khaki serge battledress, Mk II steel helmets with netting, 1937 pattern webbing with ammunition pouches, Lee-Enfield No. 4 rifles, one with a Sten gun and one carrying a Bren light machine gun',
@@ -70,6 +81,8 @@ export const UNIT_PROMPTS = {
   'uk.lflak': 'British Bofors 40 mm light anti-aircraft gun on its four-wheeled carriage with the outriggers lowered, barrel with a conical flash hider, khaki-green paint',
   'uk.hflak': 'British QF 3.7-inch heavy anti-aircraft gun on its mobile mounting with the outriggers lowered, long barrel, khaki-green paint',
   'uk.air': 'British Hawker Typhoon Mk IB fighter-bomber with thick wings, deep chin radiator under the nose, three-blade propeller, bubble canopy, four 20 mm cannons protruding from the wing leading edge, dark green and ocean grey camouflage on top and light grey underside',
+  'uk.td': 'British 17-pounder SP Achilles tank destroyer: Sherman-based hull with sloped welded armour, open-topped pentagonal turret with the very long 17-pounder gun with a muzzle brake and a counterweight, VVSS suspension with three bogie units per side, khaki-green paint',
+  'uk.fighter': 'British Supermarine Spitfire Mk IX fighter with elliptical wings, slim pointed Merlin engine nose, four-blade propeller, small bubble-top canopy, dark green and ocean grey camouflage on top and medium sea grey underside',
 
   // --- Sowjetunion ---
   'su.inf': 'Soviet Red Army riflemen of 1943 in khaki-brown gymnastyorka tunics, SSh-40 steel helmets painted green, rolled greatcoats across the shoulder, Mosin-Nagant rifles, one with a PPSh-41 submachine gun and one carrying a DP-27 light machine gun',
@@ -83,4 +96,6 @@ export const UNIT_PROMPTS = {
   'su.lflak': 'Soviet 37 mm 61-K anti-aircraft gun on its four-wheeled carriage with the outriggers lowered, barrel with a flash hider, small gun shield, dark green paint',
   'su.hflak': 'Soviet 85 mm 52-K heavy anti-aircraft gun on its cruciform platform with outriggers lowered, long barrel with muzzle brake, dark green paint',
   'su.air': 'Soviet Ilyushin Il-2 Shturmovik ground-attack aircraft with an armoured nose and inline engine, two-seat canopy with a rear gunner, landing gear fairings under the wings, dark green and black-green camouflage on top and light blue underside',
+  'su.td': 'Soviet SU-100 tank destroyer: T-34 chassis with a low sloped turretless casemate, the very long 100 mm D-10S gun in a mantlet in the front plate, five large road wheels, dark green paint',
+  'su.fighter': 'Soviet Lavochkin La-5FN fighter with a wide radial-engine nose, three-blade propeller, bubble-type canopy, slim rear fuselage, grey-blue and dark grey camouflage on top and light blue underside',
 };

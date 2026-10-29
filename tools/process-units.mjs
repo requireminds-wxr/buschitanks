@@ -161,7 +161,11 @@ function frontPoint(im) {
 
 const rawDir = path.join(ROOT, 'tools/raw', model);
 fs.mkdirSync(outDir, { recursive: true });
-const manifest = {};
+// Bestehende Einträge behalten: tools/raw liegt nicht im Repo, ein Lauf mit nur
+// neuen Rohbildern darf die übrigen Sprites nicht aus sprites.js entfernen.
+const spritesFile = path.join(outDir, 'sprites.js');
+const manifest = fs.existsSync(spritesFile)
+  ? Function(fs.readFileSync(spritesFile, 'utf8') + '\nreturn UNIT_SPRITES;')() : {};
 for (const file of fs.readdirSync(rawDir).filter(f => f.endsWith('.png')).sort()) {
   const key = file.replace(/\.png$/, '');
   // Rohr nur suchen, wenn der Prompt eins verlangt hat (BARREL_LAYOUT).
@@ -200,8 +204,8 @@ for (const file of fs.readdirSync(rawDir).filter(f => f.endsWith('.png')).sort()
   console.log(key.padEnd(12), `${W}×${H}`, barrel ? `Rohr ab x=${entry.pivot[0]}` : 'ohne Rohr');
 }
 
-const lines = Object.entries(manifest).map(([k, v]) => `  '${k}': ${JSON.stringify(v)},`);
-fs.writeFileSync(path.join(outDir, 'sprites.js'),
+const lines = Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `  '${k}': ${JSON.stringify(v)},`);
+fs.writeFileSync(spritesFile,
   `// Erzeugt von tools/process-units.mjs (${model}) – nicht von Hand ändern.\n` +
   `// Koordinaten als Anteil an Breite/Höhe; alle Sprites schauen nach rechts.\n` +
   `const UNIT_SPRITES = {\n${lines.join('\n')}\n};\n`);

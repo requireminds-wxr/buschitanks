@@ -112,17 +112,18 @@ class Controller {
         <ul>
           <li><b>Ziel:</b> Erobere alle Städte – einschließlich beider Hauptquartiere. Wer sie alle hält, gewinnt sofort. Ein verlorenes HQ ist noch keine Niederlage, kann aber zurückerobert werden. Nach ${MAX_TURNS} Runden entscheiden Städte und Truppenstärke.</li>
           <li><b>Ablauf:</b> Einheit anklicken → blaues Feld wählen, um zu ziehen → rot markiertes Ziel anklicken, um anzugreifen. Angreifen ist auch ohne Bewegung möglich, danach ist die Einheit fertig.</li>
-          <li><b>Schwere Fernkampfeinheiten</b> (Artillerie, schwere Flak) schießen auf ${rangeText('art')} Felder, aber nicht im Zug, in dem sie abgesetzt wurden. Artillerie wird nicht erwidert und erwidert selbst nicht. Sie braucht Aufklärung, denn sie sieht selbst nur ${UNIT_TYPES.art.vision} Feld weit.</li>
+          <li><b>Schwere Fernkampfeinheiten</b> (Artillerie, schwere Flak): leichte Haubitzen schießen auf ${rangeText('art')}, schwere (15 cm) bis 5 Felder, schwere Flak auf ${rangeText('hflak')} Felder, aber nicht im Zug, in dem sie abgesetzt wurden. Artillerie wird nicht erwidert und erwidert selbst nicht. Sie braucht Aufklärung, denn sie sieht selbst nur ${UNIT_TYPES.art.vision} Feld weit.</li>
           <li><b>Direktes und indirektes Feuer:</b> Panzer, Pak, Flak und andere direkt feuernde Einheiten brauchen freie Sicht aufs Ziel: Gebirge, Städte und sichtbare Bodeneinheiten dazwischen – auch eigene – blockieren den Schuss. Jedes Wald- oder Hügelfeld auf der Linie, auch das Feld des Ziels, verkürzt die Reichweite um 1; aufs Nachbarfeld geht es immer. Lange Kanonen schießen 2, sehr lange (8,8 cm, 17-Pfünder, Panther) 3 Felder weit. Indirekt feuernde Einheiten (${listText(GENERIC_ORDER.filter(t => UNIT_TYPES[t].fire === 'indirect').map(t => UNIT_TYPES[t].label))}) schießen über alles hinweg. Gegen Flugzeuge und für Flugzeuge ist die Sicht immer frei.</li>
+          <li><b>Entfernung:</b> Je Feld über 1 hinaus sinkt der Schaden um ${Math.round(RANGE_FALLOFF * 100)} % (indirektes Feuer ${Math.round(RANGE_FALLOFF_INDIRECT * 100)} %). Einheiten mit Präzision (deutsche Optik: Pak 40, 8,8 cm, Panzer ab 1942) verlieren entsprechend weniger. Gegen und für Flugzeuge gilt das nicht.</li>
           <li><b>Bewegung kostet Kraft:</b> Wer vor dem Angriff zieht, verliert ${Math.round(MOVE_ATTACK_PENALTY * 100)} % Angriffskraft je gezogenem Feld (3 Felder = −30 %). Die Prognose beim Zielen zeigt den Abzug an.</li>
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
           <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge. Sümpfe sind nur für Infanterie passierbar.</li>
           <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
           <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch, ist aber überrascht: −60 % Angriffskraft (auch beim Gegenschlag) bis zum Ende des gegnerischen Zuges.</li>
           <li><b>Flak:</b> Leichte Flak (MG-Vierlinge, 2–4 cm) fährt auf LKW oder Halbkette, ist je Nation und Epoche ein eigenes Modell und wirkt auf ${rangeText('lflak')} Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf ${rangeText('hflak')} Felder, stark gegen Flugzeuge und Panzer.</li>
-          <li><b>Gezogene Geschütze und Transport:</b> Artillerie und Flak sind gezogen (Ausnahme: der US-Flakpanzer M16 fährt selbst) und bewegen sich nur mit einem LKW oder Halbkettenfahrzeug. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
+          <li><b>Gezogene Geschütze und Transport:</b> ${listText(GENERIC_ORDER.filter(t => UNIT_TYPES[t].towed).map(t => UNIT_TYPES[t].label))} sind gezogen und bewegen sich nur mit einem LKW oder Halbkettenfahrzeug. Leichte Flak und Flakpanzer fahren selbst. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
           <li><b>Straßen:</b> Auf Straßen kostet jedes Feld nur 1 Bewegungspunkt. Abseits bremst das Gelände: Radfahrzeuge zahlen auf Ebene 2, in Wald und Hügeln 3; Ketten auf Ebene 1, in Wald und Hügeln 2.</li>
-          <li><b>Luftabwehr:</b> ${noAirText}Bodeneinheiten außer Flak haben gegen Flugzeuge nur ${Math.round(GROUND_VS_AIR_MUL * 100)} % Angriffskraft.</li>
+          <li><b>Luftabwehr:</b> ${noAirText}Bodeneinheiten außer Flak haben gegen Flugzeuge nur ${Math.round(GROUND_VS_AIR_MUL * 100)} % Angriffskraft. Panzer und Jagdpanzer greifen Flugzeuge gar nicht an; bei Luftangriffen wehren sich Panzer nur schwach mit dem Bord-MG, Jagdpanzer gar nicht.</li>
           <li><b>Beweglichkeit:</b> ${GENERIC_ORDER.filter(t => UNIT_TYPES[t].move > 0).map(t => `${UNIT_TYPES[t].label} ${UNIT_TYPES[t].move}`).join(', ')} Punkte (einzelne Nationen abweichend); Panzer und Flugzeuge je nach Modell. Flugzeuge fliegen unabhängig vom Gelände. Die Werte stehen in <code>config/einheiten.js</code> und <code>config/modelle.js</code>.</li>
           <li><b>Epochen:</b> Das Spiel läuft durch ${listText(ERAS.map(e => `${e.name} (ab Runde ${e.fromTurn})`))}. Panzer, Jagdpanzer, Flakpanzer und Flugzeuge sind konkrete Modelle der Nation, z. B. Panzer IV, T-34/85 oder P-51D, und nur in ihrer Epoche baubar – für beide Seiten gleichzeitig. Bereits gebaute Einheiten bleiben. Jäger sind stark im Luftkampf, Schlachtflugzeuge gegen Bodenziele.</li>
           <li><b>Kontrollzone:</b> Bodeneinheiten müssen anhalten, sobald sie neben eine feindliche Bodeneinheit ziehen. Flugzeuge ignorieren das.</li>
@@ -551,7 +552,7 @@ class Controller {
           <dt>Verteidigung</dt><dd>${s.def} ${g.terrainDefense(u, u.q, u.r) ? `+${g.terrainDefense(u, u.q, u.r)} (${terr.name})` : ''}</dd>
           <dt>Bewegung</dt><dd>${s.move > 0 ? `${s.move} (${MOVE_TYPE_LABEL[s.moveType]})` : 'gezogen'}</dd>
           ${s.transport ? `<dt>Ladung</dt><dd>${u.cargo ? `${esc(g.stats(u.cargo).name)} (${u.cargo.hp}/10)` : 'leer'}</dd>` : ''}
-          <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')} (${FIRE_TYPE_LABEL[s.fire]}es Feuer)</dd>
+          <dt>Reichweite</dt><dd>${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')} (${FIRE_TYPE_LABEL[s.fire]}es Feuer${s.precision ? `, Präzision ${Math.round(s.precision * 100)} %` : ''})</dd>
           <dt>Sichtweite</dt><dd>${s.vision}${s.spotter ? ' (sieht in Wälder)' : ''}</dd>
           <dt>Panzerung</dt><dd>${s.isAir ? 'Flugzeug' : s.armor >= 1 ? 'schwer' : s.armor > 0 ? 'leicht' : 'keine'}</dd>
         </dl>
@@ -584,6 +585,7 @@ class Controller {
     this.selected = null;
     const ov = this.view.overlay;
     ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null; ov.loads = []; ov.unloads = [];
+    if (this.buyTile !== tile) this.buyChoice = null;
     this.buyTile = tile;
     ov.buyTile = tile;
     const p = g.players[g.current];
@@ -597,24 +599,76 @@ class Controller {
       const s = unitStats(p.nation, type);
       const b = document.createElement('button');
       b.className = 'buy-item';
-      b.disabled = s.cost > p.funds;
+      // Zu teure Einheiten bleiben anklickbar (Details ansehen), kaufen geht nicht.
+      if (s.cost > p.funds) b.classList.add('expensive');
       b.innerHTML = `<span class="ic"></span>
         <span><div class="n">${esc(s.name)}</div><div class="t">${esc(s.label)} · A ${s.soft}/${s.hard}/${s.air} · V ${s.def} · B ${s.move > 0 ? s.move : 'gezogen'} · R ${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}${s.transport ? ' · Transport' : ''}</div></span>
         <span class="c">${s.cost}</span>`;
       b.querySelector('.ic').appendChild(unitIconCanvas(p.nation, type));
-      b.addEventListener('click', () => {
-        const u = g.buy(type, tile);
-        if (u) {
-          this.view.flashText(tile.q, tile.r, 'Neu!', '#bfe3ff');
-          this.buyTile = null;
-          this.deselect();
-          this.refresh();
-        }
-      });
+      if (type === this.buyChoice) b.classList.add('chosen');
+      // Erst Details zeigen, gekauft wird nach Bestätigung (renderBuyDetail).
+      b.addEventListener('click', () => { this.buyChoice = type; this.openBuy(tile); });
       list.appendChild(b);
     }
     panel.classList.remove('hidden');
-    $('infoPanel').innerHTML = `<h3>Nachschub</h3><p class="hint">Verfügbar: <b>${p.funds}</b> · Einkommen pro Runde: <b>${g.incomeOf(g.current)}</b></p>`;
+    if (this.buyChoice && !g.buildable(g.current).includes(this.buyChoice)) this.buyChoice = null;
+    if (this.buyChoice) this.renderBuyDetail(tile, this.buyChoice);
+    else $('infoPanel').innerHTML = `<h3>Nachschub</h3><p class="hint">Verfügbar: <b>${p.funds}</b> · Einkommen pro Runde: <b>${g.incomeOf(g.current)}</b></p>
+      <p class="hint">Einheit in der Liste anklicken, um ihre Werte zu sehen; gekauft wird erst nach Bestätigung.</p>`;
+  }
+
+  // Werte der gewählten Einheit vor dem Kauf, mit Kaufen / Zurück.
+  renderBuyDetail(tile, type) {
+    const g = this.game, p = g.players[g.current];
+    const s = unitStats(p.nation, type), m = MODELS[type];
+    const range = s.range[0] === s.range[1] ? s.range[0] : s.range.join('–');
+    const eras = m ? m.eras.map(e => ERAS.find(x => x.key === e).name).join(', ') : 'alle';
+    const airNote = s.air > 0 && !s.isAir && !s.aa ? ` <small>(×${GROUND_VS_AIR_MUL} = ${Math.round(s.air * GROUND_VS_AIR_MUL * 10) / 10})</small>` : '';
+    const notes = [
+      s.towed && 'Gezogen: bewegt sich nur mit LKW oder Halbkette.',
+      s.transport && 'Transporter: lädt ein gezogenes Geschütz oder Infanterie.',
+      s.capture && 'Kann Städte und Hauptquartiere erobern.',
+      s.aa && 'Flak: volle Wirkung gegen Flugzeuge.',
+      s.noAirAttack && 'Greift keine Flugzeuge an; wehrt sich bei Luftangriffen nur schwach.',
+      !s.air && !s.noAirAttack && 'Kann keine Flugzeuge angreifen.',
+      s.noMoveAndFire && 'Kann nicht im selben Zug ziehen und feuern.',
+      s.noCounter && 'Wird nicht erwidert und erwidert selbst nicht.',
+      s.precision && `Präzise auf Entfernung: Schadensabfall nur ${Math.round((1 - s.precision) * 100)} %.`,
+    ].filter(Boolean);
+    const affordable = s.cost <= p.funds;
+    $('infoPanel').innerHTML = `
+      <div class="unit-card buy-detail">
+        <div class="head"><span id="unitIcon"></span>
+          <div><div class="name">${esc(s.name)}</div><div class="sub">${esc(s.label)} · ${esc(g.nationOf(g.current).short)} · ${esc(eras)}</div></div>
+        </div>
+        <dl class="stats">
+          <dt>Angriff weich / hart / Luft</dt><dd>${s.soft} / ${s.hard} / ${s.air ? s.air : '–'}${airNote}</dd>
+          <dt>Verteidigung</dt><dd>${s.def}</dd>
+          <dt>Panzerung</dt><dd>${s.isAir ? 'Flugzeug' : s.armor >= 1 ? 'schwer' : s.armor > 0 ? 'leicht' : 'keine'}</dd>
+          <dt>Bewegung</dt><dd>${s.move > 0 ? `${s.move} (${MOVE_TYPE_LABEL[s.moveType]})` : 'gezogen'}</dd>
+          <dt>Reichweite</dt><dd>${range} (${FIRE_TYPE_LABEL[s.fire]}es Feuer)</dd>
+          <dt>Sichtweite</dt><dd>${s.vision}${s.spotter ? ' (sieht in Wälder)' : ''}</dd>
+          <dt>Kosten</dt><dd>${s.cost} <small>(danach ${p.funds - s.cost})</small></dd>
+        </dl>
+        ${notes.map(t => `<p class="hint">${t}</p>`).join('')}
+        <p class="hint">Einsatzbereit ab der nächsten Runde.</p>
+        <div class="actions">
+          <button class="btn ghost" id="buyBack">Zurück</button>
+          <button class="btn primary" id="buyConfirm" ${affordable ? '' : 'disabled'}>${affordable ? `Kaufen (${s.cost})` : 'Zu teuer'}</button>
+        </div>
+      </div>`;
+    $('unitIcon').appendChild(unitIconCanvas(p.nation, type));
+    $('buyBack').addEventListener('click', () => { this.buyChoice = null; this.openBuy(tile); });
+    $('buyConfirm').addEventListener('click', () => {
+      const u = g.buy(type, tile);
+      this.buyChoice = null;
+      if (u) {
+        this.view.flashText(tile.q, tile.r, 'Neu!', '#bfe3ff');
+        this.buyTile = null;
+        this.deselect();
+        this.refresh();
+      }
+    });
   }
 
   renderLog() {

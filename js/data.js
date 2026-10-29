@@ -6,6 +6,11 @@ const HEAL_PER_TURN = 3;
 const AMBUSH_ATTACK_MUL = 0.4;   // überraschte Einheiten: −60 % Angriff
 const GROUND_VS_AIR_MUL = 0.8;   // Bodeneinheiten ohne Flak: −20 % gegen Flugzeuge
 const MOVE_ATTACK_PENALTY = 0.1;  // −10 % Angriff je in diesem Zug bewegtem Feld
+// Schaden nimmt mit der Entfernung ab: je Feld über 1 hinaus −15 % (direktes Feuer)
+// bzw. −8 % (indirektes Feuer). precision (0–1) mindert den Abfall, z. B. 0.5 = halb so stark.
+const RANGE_FALLOFF = 0.15;
+const RANGE_FALLOFF_INDIRECT = 0.08;
+const RANGE_MUL_MIN = 0.3;
 const IMPASSABLE = 99;
 
 // Bewegungskosten je Feld. Auf einer Straße kostet jedes passierbare Feld 1 Punkt.
@@ -39,7 +44,11 @@ const UNIT_CLASSES = {
 };
 const UNIT_ORDER = Object.keys(UNIT_CLASSES);
 const UNIT_NUMBER_FIELDS = ['move', 'soft', 'hard', 'air', 'def', 'armor', 'vision', 'cost'];
-const UNIT_FLAGS = ['modelsOnly', 'capture', 'spotter', 'aa', 'isAir', 'noCounter', 'noMoveAndFire', 'towed', 'transport', 'transportable'];
+// Optionale Zahl 0–1 (fehlt = 0): Treffgenauigkeit auf Entfernung, siehe RANGE_FALLOFF.
+function checkPrecision(v, where) {
+  if (v !== undefined && !(typeof v === 'number' && v >= 0 && v <= 1)) CONFIG_ERRORS.push(`${where}: precision muss eine Zahl von 0 bis 1 sein.`);
+}
+const UNIT_FLAGS = ['modelsOnly', 'capture', 'spotter', 'aa', 'noAirAttack', 'isAir', 'noCounter', 'noMoveAndFire', 'towed', 'transport', 'transportable'];
 
 // Fehler beim Laden oder Prüfen der Konfiguration; ui.js zeigt sie statt des Startbildschirms.
 const CONFIG_ERRORS = [];
@@ -70,9 +79,10 @@ function loadUnitTypes() {
     for (const f of UNIT_FLAGS) {
       if (f in c && typeof c[f] !== 'boolean') CONFIG_ERRORS.push(`${where}: ${f} muss true oder false sein.`);
     }
-    const known = new Set(['class', 'label', 'moveType', 'fire', 'range', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
+    checkPrecision(c.precision, where);
+    const known = new Set(['class', 'label', 'moveType', 'fire', 'range', 'precision', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
     for (const f of Object.keys(c)) if (!known.has(f)) CONFIG_ERRORS.push(`${where}: unbekanntes Attribut „${f}“ (Tippfehler?).`);
-    out[key] = { ...c, range: Array.isArray(r) ? [...r] : [1, 1] };
+    out[key] = { precision: 0, ...c, range: Array.isArray(r) ? [...r] : [1, 1] };
   }
   for (const key of Object.keys(UNIT_CONFIG)) {
     if (!UNIT_ORDER.includes(key)) CONFIG_ERRORS.push(`Unbekannter Einheitentyp „${key}“ – erlaubt sind: ${UNIT_ORDER.join(', ')}.`);
@@ -125,6 +135,7 @@ function loadNations() {
         else if (f === 'costMul') { if (!(typeof v === 'number' && v > 0)) CONFIG_ERRORS.push(`${where}: mods.${t}.costMul muss eine Zahl > 0 sein.`); }
         else if (f === 'moveType') { if (!MOVE_TYPE_LABEL[v]) CONFIG_ERRORS.push(`${where}: mods.${t}.moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`); }
         else if (f === 'towed') { if (typeof v !== 'boolean') CONFIG_ERRORS.push(`${where}: mods.${t}.towed muss true oder false sein.`); }
+        else if (f === 'precision') checkPrecision(v, `${where}: mods.${t}`);
         else CONFIG_ERRORS.push(`${where}: mods.${t} hat unbekanntes Attribut „${f}“ (Tippfehler?).`);
       }
     }
@@ -171,7 +182,7 @@ function loadModels() {
     return out;
   }
   const eraKeys = ERAS.map(e => e.key);
-  const known = new Set(['nation', 'class', 'name', 'eras', 'sprite', 'moveType', 'fire', 'range', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
+  const known = new Set(['nation', 'class', 'name', 'eras', 'sprite', 'moveType', 'fire', 'range', 'precision', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
   for (const [key, m] of Object.entries(MODEL_CONFIG)) {
     const where = `Modell „${key}“`;
     if (UNIT_TYPES[key]) { CONFIG_ERRORS.push(`${where}: Der Schlüssel ist schon eine Klasse – bitte anders benennen (z. B. ${key}_1).`); continue; }
@@ -186,6 +197,7 @@ function loadModels() {
     if ('sprite' in m && !(UNIT_TYPES[m.sprite] || /^[a-z]+_[a-z0-9_]+$/.test(m.sprite))) CONFIG_ERRORS.push(`${where}: sprite muss eine Klasse sein (z. B. 'tank', 'halftrack') oder eine Zusatzgrafik wie 'lflak_lkw'.`);
     if ('moveType' in m && !MOVE_TYPE_LABEL[m.moveType]) CONFIG_ERRORS.push(`${where}: moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`);
     if ('fire' in m && !FIRE_TYPE_LABEL[m.fire]) CONFIG_ERRORS.push(`${where}: fire muss 'direct' oder 'indirect' sein.`);
+    checkPrecision(m.precision, where);
     for (const f of UNIT_NUMBER_FIELDS) {
       if (f in m && (typeof m[f] !== 'number' || !isFinite(m[f]) || m[f] < 0)) CONFIG_ERRORS.push(`${where}: ${f} muss eine Zahl ≥ 0 sein.`);
     }
@@ -198,9 +210,10 @@ function loadModels() {
     out[key] = { ...m, range: Array.isArray(r) ? [...r] : undefined };
   }
   for (const n of NATION_ORDER) {
-    for (const cls of ['tank']) {
-      if (!Object.values(out).some(m => m.nation === n && (m.class === cls || m.class === 'light') && m.eras && m.eras.includes(ERAS[0].key))) {
-        CONFIG_ERRORS.push(`config/modelle.js: ${NATIONS[n] ? NATIONS[n].short : n} braucht in der ersten Epoche mindestens einen Panzer (class 'tank' oder 'light') für die Startarmee.`);
+    const need = { tank: ['tank', 'light'], art: ['art'] };
+    for (const [cls, classes] of Object.entries(need)) {
+      if (!Object.values(out).some(m => m.nation === n && classes.includes(m.class) && m.eras && m.eras.includes(ERAS[0].key))) {
+        CONFIG_ERRORS.push(`config/modelle.js: ${NATIONS[n] ? NATIONS[n].short : n} braucht in der ersten Epoche mindestens ein Modell der Klasse ${classes.map(c => `'${c}'`).join(' oder ')} für die Startarmee.`);
       }
     }
   }
@@ -226,7 +239,7 @@ function buildableTypes(nationKey, eraKey) {
 }
 
 // Typ für eine Klasse der Startarmee: allgemeine Klasse direkt, sonst das Modell der Nation
-// aus der ersten Epoche (leichter oder mittlerer Panzer), dessen Preis START_TANK_VALUE
+// aus der ersten Epoche (leichter oder mittlerer Panzer bzw. Artillerie), dessen Preis START_TANK_VALUE
 // am nächsten kommt – so starten alle Nationen mit einem ähnlich starken Panzer.
 const START_TANK_VALUE = 250;
 function startTypeFor(nationKey, cls) {
@@ -270,6 +283,7 @@ function unitStats(nationKey, typeKey) {
       move: Math.max(0, base.move + (mod.move || 0)),
       moveType: mod.moveType || base.moveType,
       towed: 'towed' in mod ? mod.towed : base.towed,
+      precision: 'precision' in mod ? mod.precision : base.precision,
       cost: Math.round((base.cost * (nation.costMul || 1) * (mod.costMul || 1)) / 10) * 10,
       name: nation.units[typeKey],
     };
