@@ -40,7 +40,8 @@
 //    Jagdpanzer: hard über dem besten Panzer der eigenen Nation in derselben Epoche
 //    precision Treffgenauigkeit auf Entfernung 0–1 (fehlt = 0): mindert den
 //          Schadensabfall je Feld, z. B. 0.5 = halb so stark (deutsche Optik)
-//    Artillerie: leichte Haubitzen (7,5–10,5 cm) [1, 4], schwere (15 cm) [1, 5]
+//    Artillerie: leichte Haubitzen (7,5–10,5 cm) [1, 4], schwere (15 cm) [1, 5];
+//          schwere brauchen die Halbkette als Zugmaschine (needsTractor: true)
 //    air   bei Flugzeugen: Luftkampfstärke
 //    Jäger: soft (Bordwaffen gegen LKW, gezogene Geschütze, Infanterie) deutlich
 //          über hard (gegen Panzer kaum wirksam)
@@ -90,7 +91,7 @@ const MODEL_CONFIG = {
   de_lefh18: { nation: 'de', class: 'art', name: 'leFH 18 (10,5 cm)', eras: ['early', 'mid', 'late'],
     soft: 12, hard: 4, range: [1, 4], cost: 250 },
   de_sfh18: { nation: 'de', class: 'art', name: 'sFH 18 (15 cm)', eras: ['early', 'mid', 'late'],
-    soft: 15, hard: 6, range: [1, 5], cost: 360 },
+    soft: 15, hard: 6, range: [1, 5], cost: 360, needsTractor: true },
   de_bf109e: { nation: 'de', class: 'fighter', name: 'Bf 109 E', eras: ['early'],
     move: 9, soft: 5, hard: 1, air: 8, def: 4, cost: 290 },
   de_ju87b: { nation: 'de', class: 'attack', name: 'Ju 87 B Stuka', eras: ['early'],
@@ -99,11 +100,15 @@ const MODEL_CONFIG = {
     move: 10, soft: 5, hard: 1, air: 9, def: 4, cost: 350 },
   de_fw190a: { nation: 'de', class: 'fighter', name: 'Fw 190 A', eras: ['mid'],
     move: 9, soft: 7, hard: 2, air: 10, def: 5, cost: 420 },
-  de_ju87g: { nation: 'de', class: 'attack', name: 'Ju 87 G Stuka', eras: ['mid'],
-    move: 7, soft: 4, hard: 10, air: 1, def: 3, cost: 300 },
+  de_ju87d: { nation: 'de', class: 'attack', name: 'Ju 87 D Stuka', eras: ['mid'],
+    move: 7, soft: 9, hard: 5, air: 2, def: 3, cost: 290 },
+  de_ju87g: { nation: 'de', class: 'attack', name: 'Ju 87 G Stuka (3,7 cm)', eras: ['mid', 'late'],
+    move: 6, soft: 3, hard: 10, air: 1, def: 2, cost: 300 },
+  de_fw190f3: { nation: 'de', class: 'attack', name: 'Fw 190 F-3', eras: ['mid'],
+    move: 9, soft: 8, hard: 6, air: 7, def: 5, cost: 430 },
   de_fw190d: { nation: 'de', class: 'fighter', name: 'Fw 190 D-9', eras: ['late'],
     move: 10, soft: 7, hard: 2, air: 11, def: 5, cost: 440 },
-  de_fw190f: { nation: 'de', class: 'attack', name: 'Fw 190 F', eras: ['late'],
+  de_fw190f: { nation: 'de', class: 'attack', name: 'Fw 190 F-8', eras: ['late'],
     move: 9, soft: 8, hard: 7, air: 6, def: 5, cost: 470 },
 
   // ---------- Italien ----------
@@ -128,7 +133,7 @@ const MODEL_CONFIG = {
   it_obice7518: { nation: 'it', class: 'art', name: 'Obice 75/18', eras: ['early', 'mid', 'late'],
     soft: 10, hard: 3, range: [1, 4], cost: 220 },
   it_obice14919: { nation: 'it', class: 'art', name: 'Obice 149/19', eras: ['early', 'mid', 'late'],
-    soft: 14, hard: 5, range: [1, 5], cost: 340 },
+    soft: 14, hard: 5, range: [1, 5], cost: 340, needsTractor: true },
   it_cr42: { nation: 'it', class: 'fighter', name: 'Fiat CR.42', eras: ['early'],
     move: 8, soft: 5, hard: 1, air: 5, def: 3, cost: 190 },
   it_g50: { nation: 'it', class: 'fighter', name: 'Fiat G.50', eras: ['early'],
@@ -162,7 +167,7 @@ const MODEL_CONFIG = {
   jp_typ91: { nation: 'jp', class: 'art', name: 'Typ 91 (10 cm)', eras: ['early', 'mid', 'late'],
     soft: 12, hard: 4, range: [1, 4], cost: 250 },
   jp_typ96: { nation: 'jp', class: 'art', name: 'Typ 96 (15 cm)', eras: ['early', 'mid', 'late'],
-    soft: 15, hard: 6, range: [1, 5], cost: 360 },
+    soft: 15, hard: 6, range: [1, 5], cost: 360, needsTractor: true },
   jp_a6m2: { nation: 'jp', class: 'fighter', name: 'A6M2 Zero', eras: ['early'],
     move: 11, soft: 5, hard: 1, air: 9, def: 2, cost: 310 },
   jp_d3a: { nation: 'jp', class: 'attack', name: 'D3A Val', eras: ['early', 'mid'],
@@ -202,9 +207,9 @@ const MODEL_CONFIG = {
   us_m2a1: { nation: 'us', class: 'art', name: 'M2A1 (105 mm)', eras: ['early', 'mid', 'late'],
     soft: 13, hard: 4, range: [1, 4], cost: 260 },
   us_m1918: { nation: 'us', class: 'art', name: 'M1918 (155 mm)', eras: ['early'],
-    soft: 14, hard: 5, range: [1, 5], cost: 340 },
+    soft: 14, hard: 5, range: [1, 5], cost: 340, needsTractor: true },
   us_m1155: { nation: 'us', class: 'art', name: 'M1 (155 mm)', eras: ['mid', 'late'],
-    soft: 16, hard: 6, range: [1, 5], cost: 380 },
+    soft: 16, hard: 6, range: [1, 5], cost: 380, needsTractor: true },
   us_p40: { nation: 'us', class: 'fighter', name: 'P-40 Warhawk', eras: ['early'],
     move: 9, soft: 7, hard: 2, air: 7, def: 5, cost: 340 },
   us_p38: { nation: 'us', class: 'fighter', name: 'P-38 Lightning', eras: ['mid'],
@@ -246,7 +251,7 @@ const MODEL_CONFIG = {
   uk_25pdr: { nation: 'uk', class: 'art', name: '25-Pfünder', eras: ['early', 'mid', 'late'],
     soft: 13, hard: 5, range: [1, 4], cost: 270 },
   uk_55in: { nation: 'uk', class: 'art', name: '5,5-Zoll-Haubitze', eras: ['early', 'mid', 'late'],
-    soft: 15, hard: 6, range: [1, 5], cost: 360 },
+    soft: 15, hard: 6, range: [1, 5], cost: 360, needsTractor: true },
   uk_hurricane: { nation: 'uk', class: 'fighter', name: 'Hurricane I', eras: ['early'],
     move: 9, soft: 5, hard: 1, air: 7, def: 4, cost: 270 },
   uk_spitfire1: { nation: 'uk', class: 'fighter', name: 'Spitfire I', eras: ['early'],
@@ -292,7 +297,7 @@ const MODEL_CONFIG = {
   su_m30: { nation: 'su', class: 'art', name: 'M-30 (122 mm)', eras: ['early', 'mid', 'late'],
     soft: 13, hard: 4, range: [1, 4], cost: 260 },
   su_ml20: { nation: 'su', class: 'art', name: 'ML-20 (152 mm)', eras: ['early', 'mid', 'late'],
-    soft: 16, hard: 6, range: [1, 5], cost: 380 },
+    soft: 16, hard: 6, range: [1, 5], cost: 380, needsTractor: true },
   su_i16: { nation: 'su', class: 'fighter', name: 'I-16', eras: ['early'],
     move: 9, soft: 5, hard: 1, air: 6, def: 3, cost: 250 },
   su_il2: { nation: 'su', class: 'attack', name: 'Il-2 Sturmowik', eras: ['early', 'mid'],

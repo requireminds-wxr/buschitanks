@@ -78,11 +78,11 @@ class Game {
     const cached = this.visCache[player];
     if (cached && cached.version === this.version) return cached.vis;
     const vis = new Set();
-    const add = (q, r, range) => {
+    const add = (q, r, range, blockable = false) => {
       for (let dq = -range; dq <= range; dq++) {
         for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
           const k = hexKey(q + dq, r + dr);
-          if (this.map.tiles.has(k)) vis.add(k);
+          if (this.map.tiles.has(k) && (!blockable || this.lineOfSight(q, r, q + dq, r + dr))) vis.add(k);
         }
       }
     };
@@ -93,13 +93,29 @@ class Game {
         if (u.owner !== player) continue;
         const s = this.stats(u);
         const bonus = s.isAir ? 0 : (TERRAIN[this.tileOf(u).terrain].vision || 0);
-        add(u.q, u.r, s.vision + bonus);
+        add(u.q, u.r, s.vision + bonus, !s.isAir);
       }
       for (const t of this.map.tiles.values()) if (t.owner === player) add(t.q, t.r, 1);
     }
     for (const k of vis) this.explored[player].add(k);
     this.visCache[player] = { version: this.version, vis };
     return vis;
+  }
+
+  // Sicht am Boden: Gebirge zwischen Beobachter und Feld verdecken die Sicht, das
+  // Gebirgsfeld selbst ist sichtbar. Liegt die Linie genau auf der Kante zweier
+  // Felder, zählt die günstigere Seite.
+  lineOfSight(fromQ, fromR, toQ, toR) {
+    const n = hexDistance(fromQ, fromR, toQ, toR);
+    const trace = eps => {
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const tile = this.tile(...hexRound(fromQ + (toQ - fromQ) * t + eps, fromR + (toR - fromR) * t + eps));
+        if (tile && BLOCKS_VISION.includes(tile.terrain)) return false;
+      }
+      return true;
+    };
+    return trace(1e-6) || trace(-1e-6);
   }
 
   canSee(player, e) {
@@ -156,7 +172,8 @@ class Game {
         if (occ && occ.owner !== u.owner && this.canSee(u.owner, occ)) continue;
         const friend = occ && occ.owner === u.owner;
         const nc = cur.c + tc;
-        if (nc > s.move) continue;
+        // Gezogene Geschütze mit eigener Bewegung (Pak) schiebt die Bedienung genau ein Feld weit.
+        if (s.towed ? cur.c > 0 : nc > s.move) continue;
         const nk = hexKey(nq, nr);
         const ex = res.get(nk);
         if (!ex || nc < ex.cost) {
@@ -228,11 +245,15 @@ class Game {
     if (d.isAir) v = a.air * (a.isAir || a.aa ? 1 : GROUND_VS_AIR_MUL);
     else v = a.soft * (1 - d.armor) + a.hard * d.armor;
     if (this.isSurprised(att)) v *= AMBUSH_ATTACK_MUL;
-    return v * this.moveAttackMul(steps);
+    return v * this.moveAttackMul(steps, a);
   }
 
-  // Bewegung kostet Angriffskraft: −10 % je Feld.
-  moveAttackMul(steps) { return Math.max(0, 1 - MOVE_ATTACK_PENALTY * steps); }
+  // Bewegung kostet Angriffskraft: MOVE_ATTACK_PENALTY je Feld, bei Einheiten mit
+  // moveFire (Pak) stattdessen fest dieser Anteil, sobald sie gezogen sind.
+  moveAttackMul(steps, s = {}) {
+    if (steps > 0 && s.moveFire !== undefined) return s.moveFire;
+    return Math.max(0, 1 - MOVE_ATTACK_PENALTY * steps);
+  }
 
   // In einen Hinterhalt geratene Einheiten kämpfen bis zum Ende des gegnerischen Zuges geschwächt.
   isSurprised(u) { return u.surprisedUntil >= this.halfTurn; }
@@ -390,6 +411,7 @@ class Game {
     if (!this.stats(t).transport || t.cargo || t.attacked) return false;
     const gs = this.stats(g);
     if (!(gs.towed || gs.transportable) || g.attacked) return false;
+    if (gs.needsTractor && !this.stats(t).tractor) return false;
     return hexDistance(t.q, t.r, g.q, g.r) === 1;
   }
 

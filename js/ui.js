@@ -118,10 +118,10 @@ class Controller {
           <li><b>Bewegung kostet Kraft:</b> Wer vor dem Angriff zieht, verliert ${Math.round(MOVE_ATTACK_PENALTY * 100)} % Angriffskraft je gezogenem Feld (3 Felder = −30 %). Die Prognose beim Zielen zeigt den Abzug an.</li>
           <li><b>Gegenschlag:</b> Überlebt das Ziel einen Nahkampfangriff, schlägt es mit seiner verbleibenden Stärke zurück.</li>
           <li><b>Gelände:</b> Wald, Hügel, Städte und Gebirge geben Deckung (Panzer nur halbe Deckung). Fahrzeuge kommen nicht ins Gebirge. Sümpfe sind nur für Infanterie passierbar.</li>
-          <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
+          <li><b>Aufklärung:</b> Du siehst nur, was deine Einheiten und Städte aufklären (Sichtweite je Typ, auf Hügeln und im Gebirge +1). Gebirge verdecken die Sicht am Boden: Was dahinter liegt, bleibt verborgen (das Gebirgsfeld selbst ist sichtbar); Flugzeuge sehen darüber hinweg. Gegner in nicht aufgeklärten Feldern sind unsichtbar und können nicht angegriffen werden. Im Wald erkennt man Gegner nur aus direkter Nachbarschaft oder mit Aufklärern und Flugzeugen. Wer feuert, verrät seine Stellung für eine Runde.</li>
           <li><b>Hinterhalt:</b> Stößt eine Einheit unterwegs auf einen unentdeckten Gegner, bleibt sie sofort stehen und verliert ihre restliche Bewegung. Angreifen darf sie danach noch, ist aber überrascht: −60 % Angriffskraft (auch beim Gegenschlag) bis zum Ende des gegnerischen Zuges.</li>
           <li><b>Flak:</b> Leichte Flak (MG-Vierlinge, 2–4 cm) fährt auf LKW oder Halbkette, ist je Nation und Epoche ein eigenes Modell und wirkt auf ${rangeText('lflak')} Felder, stark gegen Flugzeuge und weiche Ziele. Schwere Flak (7,5–9 cm, z. B. 8,8 cm) wirkt auf ${rangeText('hflak')} Felder, stark gegen Flugzeuge und Panzer.</li>
-          <li><b>Gezogene Geschütze und Transport:</b> ${listText(GENERIC_ORDER.filter(t => UNIT_TYPES[t].towed).map(t => UNIT_TYPES[t].label))} sind gezogen und bewegen sich nur mit einem LKW oder Halbkettenfahrzeug. Leichte Flak und Flakpanzer fahren selbst. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
+          <li><b>Gezogene Geschütze und Transport:</b> Pak, Artillerie und schwere Flak sind gezogen. Artillerie und schwere Flak bewegen sich nur mit einem Fahrzeug. Die Pak schiebt ihre Bedienung auch selbst ein Feld weit und kann danach noch feuern, aber nur mit ${Math.round((UNIT_TYPES.at.moveFire ?? 1) * 100)} % Kraft. Das Halbkettenfahrzeug zieht alles; der LKW nur Infanterie, Pak und leichte Artillerie – schwere Flak (z. B. 8,8 cm) und schwere Haubitzen (15 cm) brauchen die Halbkette. Leichte Flak und Flakpanzer fahren selbst. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt genau eine Einheit: daneben fahren, dann Fahrzeug und Einheit nacheinander anklicken. Zum Absetzen nach der Fahrt ein gelbes Nachbarfeld anklicken (oder vorher <kbd>U</kbd>). Abgesetzte Einheiten handeln erst im nächsten Zug, Infanterie erobert eine Stadt aber sofort. Wird ein beladenes Fahrzeug vernichtet, ist auch die Ladung verloren. Der LKW ist abseits der Straßen langsam, die Halbkette geländegängig.</li>
           <li><b>Straßen:</b> Auf Straßen kostet jedes Feld nur 1 Bewegungspunkt. Abseits bremst das Gelände: Radfahrzeuge zahlen auf Ebene 2, in Wald und Hügeln 3; Ketten auf Ebene 1, in Wald und Hügeln 2.</li>
           <li><b>Luftabwehr:</b> ${noAirText}Bodeneinheiten außer Flak haben gegen Flugzeuge nur ${Math.round(GROUND_VS_AIR_MUL * 100)} % Angriffskraft. Panzer und Jagdpanzer greifen Flugzeuge gar nicht an; bei Luftangriffen wehren sich Panzer nur schwach mit dem Bord-MG, Jagdpanzer gar nicht.</li>
           <li><b>Beweglichkeit:</b> ${GENERIC_ORDER.filter(t => UNIT_TYPES[t].move > 0).map(t => `${UNIT_TYPES[t].label} ${UNIT_TYPES[t].move}`).join(', ')} Punkte (einzelne Nationen abweichend); Panzer und Flugzeuge je nach Modell. Flugzeuge fliegen unabhängig vom Gelände. Die Werte stehen in <code>config/einheiten.js</code> und <code>config/modelle.js</code>.</li>
@@ -431,7 +431,7 @@ class Controller {
           Schaden: <span class="dmg">${range(f.min, f.max)}</span> (Ziel hat ${unit.hp})<br>
           Gegenschlag: <span class="ctr">${f.cmax ? range(f.cmin, f.cmax) : 'keiner'}</span>
           ${f.kill ? '<br><b>Sicher vernichtet</b>' : f.mayKill ? '<br>Vernichtung möglich' : ''}
-          ${sel.movedHexes ? `<br><i>Bewegt (${sel.movedHexes} Felder): −${Math.round((1 - g.moveAttackMul(sel.movedHexes)) * 100)} % Angriff</i>` : ''}
+          ${sel.movedHexes ? `<br><i>Bewegt (${sel.movedHexes} Felder): −${Math.round((1 - g.moveAttackMul(sel.movedHexes, g.stats(sel))) * 100)} % Angriff</i>` : ''}
           ${g.isSurprised(sel) ? '<br><i>Überrascht: −60 % Angriff</i>' : ''}
           ${g.stats(unit).isAir && !g.stats(sel).aa && !g.stats(sel).isAir ? '<br><i>Ohne Flak: 80 % gegen Flugzeuge</i>' : ''}
           ${g.isSurprised(unit) && f.cmax ? '<br><i>Ziel ist überrascht (−60 %)</i>' : ''}`;
@@ -533,7 +533,7 @@ class Controller {
       else if (g.attackTargets(u).length) status = '<span class="status ready">Kann angreifen</span>';
       else status = '<span class="status">Befehle ausgeführt</span>';
     }
-    if (u.movedHexes && u.owner === g.current) status += ` <span class="status warn">${u.movedHexes} Felder bewegt: −${Math.round((1 - g.moveAttackMul(u.movedHexes)) * 100)} % Angriff</span>`;
+    if (u.movedHexes && u.owner === g.current) status += ` <span class="status warn">${u.movedHexes} Felder bewegt: −${Math.round((1 - g.moveAttackMul(u.movedHexes, g.stats(u))) * 100)} % Angriff</span>`;
     if (g.isSurprised(u)) status += ' <span class="status warn">Überrascht: −60 % Angriff</span>';
     const tileNow = g.tileOf(u);
     const repairHint = u.hp < 10 && tileNow.owner === u.owner && terr.capturable
@@ -558,13 +558,14 @@ class Controller {
         </dl>
         ${status}
         ${s.noMoveAndFire ? '<p class="hint">Kann nicht im selben Zug ziehen und feuern.</p>' : ''}
+        ${s.moveFire !== undefined ? `<p class="hint">Kann nach dem Ziehen noch feuern, aber nur mit ${Math.round(s.moveFire * 100)} % Kraft.</p>` : ''}
         ${s.capture ? '<p class="hint">Kann Städte und Hauptquartiere erobern.</p>' : ''}
         ${!s.air ? '<p class="hint">Kann keine Flugzeuge angreifen.</p>' : ''}
-        ${s.towed ? `<p class="hint">Gezogen: ${s.move > 0 ? 'bewegt sich langsam selbst oder schneller' : 'bewegt sich nur'} mit LKW oder Halbkette. Transporter daneben stellen, dann Transporter und Geschütz nacheinander anklicken.</p>` : ''}
+        ${s.towed ? `<p class="hint">Gezogen: ${s.move > 0 ? 'wird von Hand ein Feld weit verschoben oder fährt' : 'bewegt sich nur'} mit ${s.needsTractor ? 'einer Halbkette (zu schwer für den LKW)' : 'LKW oder Halbkette'}. Transporter daneben stellen, dann Transporter und Geschütz nacheinander anklicken.</p>` : ''}
         ${s.transportable ? '<p class="hint">Kann mit LKW oder Halbkette transportiert werden.</p>' : ''}
         ${s.transport ? `<p class="hint">${u.cargo
           ? 'Ladung absetzen: nach dem Fahren gelbes Nachbarfeld anklicken, oder vorher <kbd>U</kbd> drücken. Wird das Fahrzeug vernichtet, ist auch die Ladung verloren.'
-          : 'Lädt ein gezogenes Geschütz oder Infanterie: daneben fahren und die grün markierte Einheit anklicken.'}</p>` : ''}
+          : `Lädt ${s.tractor ? 'jedes gezogene Geschütz' : 'Pak, leichte Artillerie'} oder Infanterie: daneben fahren und die grün markierte Einheit anklicken.`}</p>` : ''}
         ${u.cargo && u.owner === g.current && g.canMove(u) && g.unloadTiles(u).length ? `<button class="btn" id="unloadBtn">${this.unloadMode ? 'Abladen abbrechen' : 'Hier abladen (U)'}</button>` : ''}
         ${repairHint}
       </div>`;
@@ -585,7 +586,7 @@ class Controller {
     this.selected = null;
     const ov = this.view.overlay;
     ov.selected = null; ov.reach = null; ov.targets = []; ov.path = null; ov.loads = []; ov.unloads = [];
-    if (this.buyTile !== tile) this.buyChoice = null;
+    if (this.buyTile !== tile || (this.buyChoice && !g.buildable(g.current).includes(this.buyChoice))) this.buyChoice = null;
     this.buyTile = tile;
     ov.buyTile = tile;
     const p = g.players[g.current];
@@ -605,40 +606,45 @@ class Controller {
         <span><div class="n">${esc(s.name)}</div><div class="t">${esc(s.label)} · A ${s.soft}/${s.hard}/${s.air} · V ${s.def} · B ${s.move > 0 ? s.move : 'gezogen'} · R ${s.range[0] === s.range[1] ? s.range[0] : s.range.join('–')}${s.transport ? ' · Transport' : ''}</div></span>
         <span class="c">${s.cost}</span>`;
       b.querySelector('.ic').appendChild(unitIconCanvas(p.nation, type));
-      if (type === this.buyChoice) b.classList.add('chosen');
-      // Erst Details zeigen, gekauft wird nach Bestätigung (renderBuyDetail).
-      b.addEventListener('click', () => { this.buyChoice = type; this.openBuy(tile); });
+      // Erst Details zeigen (direkt unter dem Eintrag), gekauft wird nach Bestätigung.
+      // Erneuter Klick auf den gewählten Eintrag klappt die Details wieder zu.
+      b.addEventListener('click', () => { this.buyChoice = this.buyChoice === type ? null : type; this.openBuy(tile); });
       list.appendChild(b);
+      if (type === this.buyChoice) {
+        b.classList.add('chosen');
+        const detail = document.createElement('div');
+        list.appendChild(detail);
+        this.renderBuyDetail(detail, tile, type);
+      }
     }
     panel.classList.remove('hidden');
-    if (this.buyChoice && !g.buildable(g.current).includes(this.buyChoice)) this.buyChoice = null;
-    if (this.buyChoice) this.renderBuyDetail(tile, this.buyChoice);
-    else $('infoPanel').innerHTML = `<h3>Nachschub</h3><p class="hint">Verfügbar: <b>${p.funds}</b> · Einkommen pro Runde: <b>${g.incomeOf(g.current)}</b></p>
+    $('infoPanel').innerHTML = `<h3>Nachschub</h3><p class="hint">Verfügbar: <b>${p.funds}</b> · Einkommen pro Runde: <b>${g.incomeOf(g.current)}</b></p>
       <p class="hint">Einheit in der Liste anklicken, um ihre Werte zu sehen; gekauft wird erst nach Bestätigung.</p>`;
   }
 
-  // Werte der gewählten Einheit vor dem Kauf, mit Kaufen / Zurück.
-  renderBuyDetail(tile, type) {
+  // Werte der gewählten Einheit vor dem Kauf, mit Kaufen / Zurück (in el, unter dem Listeneintrag).
+  renderBuyDetail(el, tile, type) {
     const g = this.game, p = g.players[g.current];
     const s = unitStats(p.nation, type), m = MODELS[type];
     const range = s.range[0] === s.range[1] ? s.range[0] : s.range.join('–');
     const eras = m ? m.eras.map(e => ERAS.find(x => x.key === e).name).join(', ') : 'alle';
     const airNote = s.air > 0 && !s.isAir && !s.aa ? ` <small>(×${GROUND_VS_AIR_MUL} = ${Math.round(s.air * GROUND_VS_AIR_MUL * 10) / 10})</small>` : '';
     const notes = [
-      s.towed && 'Gezogen: bewegt sich nur mit LKW oder Halbkette.',
-      s.transport && 'Transporter: lädt ein gezogenes Geschütz oder Infanterie.',
+      s.towed && `Gezogen: ${s.move > 0 ? 'wird von Hand ein Feld weit verschoben, sonst mit ' : 'bewegt sich nur mit '}${s.needsTractor ? 'Halbkette (zu schwer für den LKW)' : 'LKW oder Halbkette'}.`,
+      s.transport && `Transporter: lädt ${s.tractor ? 'jedes gezogene Geschütz (auch schwere Flak und schwere Haubitzen) oder Infanterie' : 'Infanterie, Pak oder leichte Artillerie (keine schweren Geschütze)'}.`,
       s.capture && 'Kann Städte und Hauptquartiere erobern.',
       s.aa && 'Flak: volle Wirkung gegen Flugzeuge.',
       s.noAirAttack && 'Greift keine Flugzeuge an; wehrt sich bei Luftangriffen nur schwach.',
       !s.air && !s.noAirAttack && 'Kann keine Flugzeuge angreifen.',
       s.noMoveAndFire && 'Kann nicht im selben Zug ziehen und feuern.',
+      s.moveFire !== undefined && `Kann nach dem Ziehen noch feuern, aber nur mit ${Math.round(s.moveFire * 100)} % Kraft.`,
       s.noCounter && 'Wird nicht erwidert und erwidert selbst nicht.',
       s.precision && `Präzise auf Entfernung: Schadensabfall nur ${Math.round((1 - s.precision) * 100)} %.`,
     ].filter(Boolean);
     const affordable = s.cost <= p.funds;
-    $('infoPanel').innerHTML = `
-      <div class="unit-card buy-detail">
-        <div class="head"><span id="unitIcon"></span>
+    el.className = 'unit-card buy-detail';
+    el.innerHTML = `
+        <div class="head"><span class="ic"></span>
           <div><div class="name">${esc(s.name)}</div><div class="sub">${esc(s.label)} · ${esc(g.nationOf(g.current).short)} · ${esc(eras)}</div></div>
         </div>
         <dl class="stats">
@@ -653,13 +659,15 @@ class Controller {
         ${notes.map(t => `<p class="hint">${t}</p>`).join('')}
         <p class="hint">Einsatzbereit ab der nächsten Runde.</p>
         <div class="actions">
-          <button class="btn ghost" id="buyBack">Zurück</button>
-          <button class="btn primary" id="buyConfirm" ${affordable ? '' : 'disabled'}>${affordable ? `Kaufen (${s.cost})` : 'Zu teuer'}</button>
-        </div>
-      </div>`;
-    $('unitIcon').appendChild(unitIconCanvas(p.nation, type));
-    $('buyBack').addEventListener('click', () => { this.buyChoice = null; this.openBuy(tile); });
-    $('buyConfirm').addEventListener('click', () => {
+          <button class="btn ghost" data-act="back">Zurück</button>
+          <button class="btn primary" data-act="buy" ${affordable ? '' : 'disabled'}>${affordable ? `Kaufen (${s.cost})` : 'Zu teuer'}</button>
+        </div>`;
+    el.querySelector('.ic').appendChild(unitIconCanvas(p.nation, type));
+    el.querySelector('[data-act="back"]').addEventListener('click', () => { this.buyChoice = null; this.openBuy(tile); });
+    const confirm = el.querySelector('[data-act="buy"]');
+    // Details und Knopf sichtbar machen, auch wenn die Seitenleiste gescrollt ist.
+    requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    confirm.addEventListener('click', () => {
       const u = g.buy(type, tile);
       this.buyChoice = null;
       if (u) {

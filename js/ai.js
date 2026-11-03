@@ -280,6 +280,9 @@ function aiBuy(game) {
     const towed = count(mine, u => game.stats(u).towed) + count(mine, u => u.cargo && game.stats(u.cargo).towed);
     const transports = count(mine, u => game.stats(u).transport);
     const needTransport = towed - transports;
+    // Schwere Flak braucht ein Zugfahrzeug (Halbkette), der LKW reicht nicht.
+    const heavyTowed = count(mine, u => game.stats(u).needsTractor) + count(mine, u => u.cargo && game.stats(u.cargo).needsTractor);
+    const needTractor = heavyTowed - count(mine, u => game.stats(u).tractor);
     const classWeights = {
       inf: 2 + (myInf < 4 ? 4 : 0),
       recon: myRecon < 2 ? 2.5 : 0.5,
@@ -295,7 +298,7 @@ function aiBuy(game) {
       fighter: Math.max(0.3, 0.8 + enemyAir * 1.2 - myFighters * 0.5),
       attack: 1.5,
       truck: needTransport > 0 ? 3 * needTransport : 0.3,
-      halftrack: needTransport > 0 ? 2 * needTransport : 0.2,
+      halftrack: needTractor > 0 ? 4 * needTractor : needTransport > 0 ? 2 * needTransport : 0.2,
     };
     const affordable = buildable.filter(t => game.unitCost(me, t) <= p.funds && (classWeights[unitClass(t)] || 0) > 0);
     if (!affordable.length) break;
@@ -337,6 +340,7 @@ function pickupCandidates(game, t) {
   for (const u of game.units) {
     if (u.owner !== me || u.attacked) continue;
     const s = game.stats(u);
+    if (s.needsTractor && !game.stats(t).tractor) continue;
     if (s.towed && !game.attackTargets(u).length) {
       // Geschütze in der eigenen Stadt blockieren die Produktion und haben Vorrang.
       const inCity = TERRAIN[game.tileOf(u).terrain].capturable ? 30 : 0;
