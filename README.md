@@ -18,11 +18,11 @@ python3 -m http.server 8765
 - Zufällige, punktsymmetrische Karten in zwei Größen (mittel, groß) mit Straßennetz zwischen HQs und Städten; ein Seed reproduziert die Karte.
 - Drei Epochen (1939–41, 1942–43, 1944–45), die im Spielverlauf nach Runden wechseln. Panzer, Jagdpanzer, Flakpanzer, Jäger und Schlachtflugzeuge sind konkrete Modelle je Nation (z. B. Panzer II bis Tiger II, T-26 bis IS-2, P-40 bis P-51D) und nur in ihrer Epoche baubar – so treffen nur zeitgleiche Modelle aufeinander.
 - Allgemeine Einheiten: Infanterie, Aufklärung, LKW, Halbkettenfahrzeug, Panzerabwehr, Artillerie, Leichte und Schwere Flak – mit Namen und kleinen Abweichungen je Nation. Alle Einheiten mit NATO-Symbol und Grafik.
-- Nebel des Krieges (abschaltbar): Jeder Typ hat eine Sichtweite, Aufklärer und Flugzeuge sehen in Wälder. Nur aufgeklärte Gegner sind sichtbar und angreifbar; unentdeckte Gegner führen zu Hinterhalten.
+- Nebel des Krieges (abschaltbar): Jeder Typ hat eine Sichtweite, Aufklärer und Flugzeuge sehen in Wälder. Gebirge verdecken die Sicht am Boden (Flugzeuge sehen darüber hinweg). Nur aufgeklärte Gegner sind sichtbar und angreifbar; unentdeckte Gegner führen zu Hinterhalten.
 - Leichte Flak fährt auf LKW oder Halbkette (z. B. Opel Blitz mit 2-cm-Flak, Sd.Kfz. 7/1 Vierling, M16, Morris C9/B), je Nation und Epoche als eigenes Modell, wirkt 1–3 Felder weit und ist auch gegen weiche Ziele stark, schwere Flak wie die 8,8 cm (2–5 Felder) auch gegen Panzer. Artillerie schießt 1–4 Felder (leichte Haubitzen) bzw. 1–5 Felder (schwere, 15 cm) weit.
 - Schaden nimmt mit der Entfernung ab: je Feld über 1 hinaus −15 % (Artillerie −8 %). Deutsche Pak 40, 8,8-cm-Flak und Panzer ab 1942 (Tiger, Panther, Jagdpanther …) treffen präziser und verlieren nur halb so viel.
 - Direktes Feuer braucht freie Sicht: Gebirge, Städte und sichtbare Bodeneinheiten blockieren, jedes Wald- oder Hügelfeld auf der Linie verkürzt die Reichweite um 1. Panzer mit langer Kanone schießen 2, mit sehr langer 3 Felder weit. Artillerie feuert indirekt über alles hinweg.
-- Pak (z. B. Pak 40), Artillerie (z. B. leFH 18) und schwere Flak (z. B. 8,8 cm) sind gezogen und bewegen sich nur mit LKW oder Halbkettenfahrzeug; leichte Flak und Flakpanzer fahren selbst. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt eine Einheit; wird es beladen vernichtet, ist die Ladung verloren.
+- Pak (z. B. Pak 40), Artillerie (z. B. leFH 18) und schwere Flak (z. B. 8,8 cm) sind gezogen und bewegen sich mit LKW oder Halbkettenfahrzeug; die Pak schiebt ihre Bedienung auch selbst ein Feld weit und feuert danach mit halber Kraft. Die Halbkette zieht alles, der LKW nur Infanterie, Pak und leichte Artillerie; schwere Flak und 15-cm-Haubitzen brauchen die Halbkette; leichte Flak und Flakpanzer fahren selbst. Auch Infanterie kann mitfahren. Ein Fahrzeug lädt eine Einheit; wird es beladen vernichtet, ist die Ladung verloren.
 - Straßen: jedes Feld kostet 1 Bewegungspunkt. Abseits bremst das Gelände, Radfahrzeuge stärker als Ketten. Sümpfe sind nur für Infanterie passierbar.
 - Artillerie und Panzerabwehr können keine Flugzeuge angreifen; andere Bodeneinheiten außer Flak haben gegen Flugzeuge nur 80 % Angriffskraft.
 - Bewegung kostet Angriffskraft: −10 % je in diesem Zug gezogenem Feld.
@@ -37,11 +37,12 @@ Die vollständigen Regeln stehen im Startbildschirm unter „Spielregeln“.
 ## Einheiten und Nationen anpassen
 
 - [`config/einheiten.js`](config/einheiten.js): Grundwerte aller Einheiten (Klasse, Bewegung, Angriff, Verteidigung, gezogen, Feuerart, Reichweite, Sicht, Kosten, Fähigkeiten). Jeder Eintrag gehört zu einer generischen Klasse (`class`), die Symbol, Silhouette und KI-Verhalten bestimmt – vorbereitet für spätere Modelle wie Panzer IV und Panther.
-- `config/reichweite.js`, `config/gelaende.js`, `config/beschuss.js`: vorbereitete, noch leere und nicht aktive Vorlagen (Schaden je Entfernung, Geländekosten, Beschusswirkung).
+- [`config/reichweite.js`](config/reichweite.js): Regeln für Reichweite, Sicht und Schießen – Schadensabfall je Feld, Abzug nach Bewegung, Hinterhalt, Bodeneinheiten gegen Flugzeuge, welches Gelände Schusslinie und Sicht blockiert.
+- `config/gelaende.js`, `config/beschuss.js`: vorbereitete, noch leere und nicht aktive Vorlagen (Geländekosten, Beschusswirkung).
 - [`config/modelle.js`](config/modelle.js): Epochen und alle Modelle je Nation mit eigenen Werten und Preisen.
 - [`config/nationen.js`](config/nationen.js): Nationen mit Namen, Farben, Preis- und Einkommensfaktor, Einheitennamen und den Abweichungen ihrer Einheiten von den Grundwerten (orientiert an der historischen Bewaffnung und Panzerung).
 
-Werte ändern, speichern, Spiel neu laden – die Änderungen gelten ab dem nächsten Spiel. Beide Dateien erklären jedes Attribut. Bei Tippfehlern oder ungültigen Werten zeigt das Spiel beim Start eine Fehlerliste statt des Menüs.
+Werte ändern, speichern, Spiel neu laden – die Änderungen gelten ab dem nächsten Spiel. Jede Datei erklärt ihre Attribute. Bei Tippfehlern oder ungültigen Werten zeigt das Spiel beim Start eine Fehlerliste statt des Menüs.
 
 Für die Online-Version müssen Änderungen committet und gepusht werden.
 
@@ -52,7 +53,8 @@ Für die Online-Version müssen Änderungen committet und gepusht werden.
 | `config/einheiten.js` | Einheitenwerte zum Anpassen |
 | `config/modelle.js` | Epochen und Modelle (Panzer, Flugzeuge) je Nation |
 | `config/nationen.js` | Nationen, Boni und Einheitennamen zum Anpassen |
-| `config/reichweite.js`, `gelaende.js`, `beschuss.js` | Vorlagen, noch nicht aktiv |
+| `config/reichweite.js` | Reichweite, Sicht und Schießen zum Anpassen |
+| `config/gelaende.js`, `beschuss.js` | Vorlagen, noch nicht aktiv |
 | `js/data.js` | Gelände; lädt und prüft die Konfiguration |
 | `js/hex.js` | Hex-Koordinaten, Distanzen, Zufallsgenerator |
 | `js/map.js` | Kartengenerator |

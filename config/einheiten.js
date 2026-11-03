@@ -38,7 +38,9 @@
 //                  Geländedeckung.
 //    towed         gezogen (true) oder selbstfahrend (false). Gezogene Einheiten
 //                  können von einem Transportfahrzeug geladen werden; mit
-//                  move: 0 bewegen sie sich nur so.
+//                  move: 0 bewegen sie sich nur so. Mit move > 0 werden sie
+//                  von Hand verschoben: höchstens ein Feld pro Zug, in jedes
+//                  passierbare Gelände (z. B. Pak).
 //    fire          Feuerart:
 //                  'direct'   direktes Feuer – braucht freie Sicht aufs Ziel: Gebirge,
 //                             Städte (auch HQ) und (sichtbare) Bodeneinheiten
@@ -53,6 +55,10 @@
 //                  dazwischen), 3 = zwei Felder dazwischen.
 //    vision        Sichtweite in Feldern (Nebel des Krieges)
 //    cost          Kaufpreis
+//    precision     optional: Treffgenauigkeit auf Entfernung (0–1)
+//    moveFire      optional: Angriffskraft nach Bewegung im selben Zug (0–1),
+//                  z. B. 0.5 = halbe Kraft. Ohne Angabe gilt der Abzug je Feld.
+//                  Beides siehe config/reichweite.js.
 //
 //  Weitere Schalter (true / false, fehlend = false):
 //    modelsOnly    nur über Modelle aus config/modelle.js baubar
@@ -66,6 +72,11 @@
 //    noMoveAndFire darf nicht im selben Zug ziehen und feuern
 //    transport     Transportfahrzeug: lädt genau eine Einheit (gezogen oder transportable)
 //    transportable kann von einem Transportfahrzeug mitgenommen werden (Infanterie)
+//    needsTractor  zu schwer für den LKW: nur ein Zugfahrzeug (tractor) lädt es
+//                  (8,8-cm-Flak, 15-cm-Haubitzen hinter der Halbkette Sd.Kfz. 7)
+//    tractor       Zugfahrzeug: lädt alles, auch Einheiten mit needsTractor.
+//                  Der LKW (ohne tractor) lädt Infanterie, Pak und leichte
+//                  Artillerie.
 //
 //  Geländekosten (Bewegungspunkte je Feld) stehen in js/data.js unter TERRAIN.
 //  Auf einer Straße kostet jedes Feld 1 Punkt.
@@ -114,7 +125,7 @@ const UNIT_CONFIG = {
     def: 3, armor: 0.5,
     towed: false, fire: 'direct', range: [1, 1],
     vision: 2, cost: 120,
-    transport: true,
+    transport: true, tractor: true,
   },
 
   light: {
@@ -164,12 +175,12 @@ const UNIT_CONFIG = {
   at: {
     class: 'at',
     label: 'Panzerabwehr',
-    moveType: 'foot', move: 0,
+    moveType: 'foot', move: 1,
     soft: 2, hard: 12, air: 0,
     def: 5, armor: 0,
     towed: true, fire: 'direct', range: [1, 3],
-    vision: 3, cost: 200,
-    noCounter: true, noMoveAndFire: true,
+    vision: 3, cost: 200, moveFire: 0.5,
+    noCounter: true,
   },
 
   art: {
@@ -202,7 +213,7 @@ const UNIT_CONFIG = {
     def: 4, armor: 0,
     towed: true, fire: 'direct', range: [2, 3],
     vision: 2, cost: 350,
-    aa: true, noMoveAndFire: true,
+    aa: true, noMoveAndFire: true, needsTractor: true,
   },
 
   spaa: {

@@ -3,14 +3,6 @@
 const START_FUNDS = 500;
 const MAX_TURNS = 50;
 const HEAL_PER_TURN = 3;
-const AMBUSH_ATTACK_MUL = 0.4;   // überraschte Einheiten: −60 % Angriff
-const GROUND_VS_AIR_MUL = 0.8;   // Bodeneinheiten ohne Flak: −20 % gegen Flugzeuge
-const MOVE_ATTACK_PENALTY = 0.1;  // −10 % Angriff je in diesem Zug bewegtem Feld
-// Schaden nimmt mit der Entfernung ab: je Feld über 1 hinaus −15 % (direktes Feuer)
-// bzw. −8 % (indirektes Feuer). precision (0–1) mindert den Abfall, z. B. 0.5 = halb so stark.
-const RANGE_FALLOFF = 0.15;
-const RANGE_FALLOFF_INDIRECT = 0.08;
-const RANGE_MUL_MIN = 0.3;
 const IMPASSABLE = 99;
 
 // Bewegungskosten je Feld. Auf einer Straße kostet jedes passierbare Feld 1 Punkt.
@@ -29,10 +21,35 @@ const TERRAIN = {
 
 const MOVE_TYPE_LABEL = { foot: 'zu Fuß', wheel: 'Räder', track: 'Ketten/Halbketten', air: 'Luft' };
 const FIRE_TYPE_LABEL = { direct: 'direkt', indirect: 'indirekt' };
+// Fehler beim Laden oder Prüfen der Konfiguration; ui.js zeigt sie statt des Startbildschirms.
+const CONFIG_ERRORS = [];
+
+// Regeln für Reichweite, Sicht und Schießen aus config/reichweite.js (RANGE_RULES).
+function rangeRule(key, max) {
+  const v = typeof RANGE_RULES !== 'undefined' ? RANGE_RULES[key] : undefined;
+  if (typeof v === 'number' && v >= 0 && v <= max) return v;
+  CONFIG_ERRORS.push(`config/reichweite.js: ${key} muss eine Zahl von 0 bis ${max} sein.`);
+  return 0;
+}
+function rangeTerrain(key) {
+  const v = typeof RANGE_RULES !== 'undefined' ? RANGE_RULES[key] : undefined;
+  if (Array.isArray(v) && v.every(t => TERRAIN[t])) return v;
+  CONFIG_ERRORS.push(`config/reichweite.js: ${key} muss eine Liste aus ${Object.keys(TERRAIN).map(t => `'${t}'`).join(', ')} sein.`);
+  return [];
+}
+// Schaden nimmt mit der Entfernung ab (je Feld über 1 hinaus); precision (0–1) mindert den Abfall.
+const RANGE_FALLOFF = rangeRule('falloff', 1);
+const RANGE_FALLOFF_INDIRECT = rangeRule('falloffIndirect', 1);
+const RANGE_MUL_MIN = rangeRule('minMul', 1);
+const MOVE_ATTACK_PENALTY = rangeRule('moveAttackPenalty', 1);  // Abzug je in diesem Zug bewegtem Feld
+const AMBUSH_ATTACK_MUL = rangeRule('ambushAttackMul', 1);      // überraschte Einheiten
+const GROUND_VS_AIR_MUL = rangeRule('groundVsAirMul', 1);       // Bodeneinheiten ohne Flak gegen Flugzeuge
 // Direktes Feuer: Gelände, das die Schusslinie blockiert, und Gelände, das die
 // Reichweite je Feld auf der Linie (inklusive Zielfeld) um 1 verkürzt.
-const BLOCKS_LINE_OF_FIRE = ['mountain', 'city', 'hq'];
-const REDUCES_RANGE = ['forest', 'hills'];
+const BLOCKS_LINE_OF_FIRE = rangeTerrain('blocksLineOfFire');
+const REDUCES_RANGE = rangeTerrain('reducesRange');
+// Gelände, hinter das Bodeneinheiten nicht sehen können (das Feld selbst ist sichtbar).
+const BLOCKS_VISION = rangeTerrain('blocksVision');
 
 // Einheitenwerte stehen in config/einheiten.js (UNIT_CONFIG) und werden hier geprüft.
 // Generische Einheitenklassen: bestimmen NATO-Symbol, Silhouette und KI-Verhalten.
@@ -44,14 +61,17 @@ const UNIT_CLASSES = {
 };
 const UNIT_ORDER = Object.keys(UNIT_CLASSES);
 const UNIT_NUMBER_FIELDS = ['move', 'soft', 'hard', 'air', 'def', 'armor', 'vision', 'cost'];
-// Optionale Zahl 0–1 (fehlt = 0): Treffgenauigkeit auf Entfernung, siehe RANGE_FALLOFF.
-function checkPrecision(v, where) {
-  if (v !== undefined && !(typeof v === 'number' && v >= 0 && v <= 1)) CONFIG_ERRORS.push(`${where}: precision muss eine Zahl von 0 bis 1 sein.`);
+// Optionale Zahlen 0–1: precision (Treffgenauigkeit auf Entfernung, fehlt = 0) und
+// moveFire (Angriffskraft nach Bewegung, fehlt = Abzug je Feld), siehe config/reichweite.js.
+const UNIT_FRACTIONS = ['precision', 'moveFire'];
+function checkFractions(obj, where) {
+  for (const f of UNIT_FRACTIONS) {
+    const v = obj[f];
+    if (v !== undefined && !(typeof v === 'number' && v >= 0 && v <= 1)) CONFIG_ERRORS.push(`${where}: ${f} muss eine Zahl von 0 bis 1 sein.`);
+  }
 }
-const UNIT_FLAGS = ['modelsOnly', 'capture', 'spotter', 'aa', 'noAirAttack', 'isAir', 'noCounter', 'noMoveAndFire', 'towed', 'transport', 'transportable'];
+const UNIT_FLAGS = ['modelsOnly', 'capture', 'spotter', 'aa', 'noAirAttack', 'isAir', 'noCounter', 'noMoveAndFire', 'towed', 'transport', 'transportable', 'needsTractor', 'tractor'];
 
-// Fehler beim Laden oder Prüfen der Konfiguration; ui.js zeigt sie statt des Startbildschirms.
-const CONFIG_ERRORS = [];
 
 function loadUnitTypes() {
   const out = {};
@@ -79,8 +99,8 @@ function loadUnitTypes() {
     for (const f of UNIT_FLAGS) {
       if (f in c && typeof c[f] !== 'boolean') CONFIG_ERRORS.push(`${where}: ${f} muss true oder false sein.`);
     }
-    checkPrecision(c.precision, where);
-    const known = new Set(['class', 'label', 'moveType', 'fire', 'range', 'precision', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
+    checkFractions(c, where);
+    const known = new Set(['class', 'label', 'moveType', 'fire', 'range', ...UNIT_FRACTIONS, ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
     for (const f of Object.keys(c)) if (!known.has(f)) CONFIG_ERRORS.push(`${where}: unbekanntes Attribut „${f}“ (Tippfehler?).`);
     out[key] = { precision: 0, ...c, range: Array.isArray(r) ? [...r] : [1, 1] };
   }
@@ -135,7 +155,7 @@ function loadNations() {
         else if (f === 'costMul') { if (!(typeof v === 'number' && v > 0)) CONFIG_ERRORS.push(`${where}: mods.${t}.costMul muss eine Zahl > 0 sein.`); }
         else if (f === 'moveType') { if (!MOVE_TYPE_LABEL[v]) CONFIG_ERRORS.push(`${where}: mods.${t}.moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`); }
         else if (f === 'towed') { if (typeof v !== 'boolean') CONFIG_ERRORS.push(`${where}: mods.${t}.towed muss true oder false sein.`); }
-        else if (f === 'precision') checkPrecision(v, `${where}: mods.${t}`);
+        else if (f === 'precision') checkFractions({ precision: v }, `${where}: mods.${t}`);
         else CONFIG_ERRORS.push(`${where}: mods.${t} hat unbekanntes Attribut „${f}“ (Tippfehler?).`);
       }
     }
@@ -182,7 +202,7 @@ function loadModels() {
     return out;
   }
   const eraKeys = ERAS.map(e => e.key);
-  const known = new Set(['nation', 'class', 'name', 'eras', 'sprite', 'moveType', 'fire', 'range', 'precision', ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
+  const known = new Set(['nation', 'class', 'name', 'eras', 'sprite', 'moveType', 'fire', 'range', ...UNIT_FRACTIONS, ...UNIT_NUMBER_FIELDS, ...UNIT_FLAGS]);
   for (const [key, m] of Object.entries(MODEL_CONFIG)) {
     const where = `Modell „${key}“`;
     if (UNIT_TYPES[key]) { CONFIG_ERRORS.push(`${where}: Der Schlüssel ist schon eine Klasse – bitte anders benennen (z. B. ${key}_1).`); continue; }
@@ -197,7 +217,7 @@ function loadModels() {
     if ('sprite' in m && !(UNIT_TYPES[m.sprite] || /^[a-z]+_[a-z0-9_]+$/.test(m.sprite))) CONFIG_ERRORS.push(`${where}: sprite muss eine Klasse sein (z. B. 'tank', 'halftrack') oder eine Zusatzgrafik wie 'lflak_lkw'.`);
     if ('moveType' in m && !MOVE_TYPE_LABEL[m.moveType]) CONFIG_ERRORS.push(`${where}: moveType muss 'foot', 'wheel', 'track' oder 'air' sein.`);
     if ('fire' in m && !FIRE_TYPE_LABEL[m.fire]) CONFIG_ERRORS.push(`${where}: fire muss 'direct' oder 'indirect' sein.`);
-    checkPrecision(m.precision, where);
+    checkFractions(m, where);
     for (const f of UNIT_NUMBER_FIELDS) {
       if (f in m && (typeof m[f] !== 'number' || !isFinite(m[f]) || m[f] < 0)) CONFIG_ERRORS.push(`${where}: ${f} muss eine Zahl ≥ 0 sein.`);
     }
